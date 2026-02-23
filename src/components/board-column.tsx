@@ -66,22 +66,17 @@ export function BoardColumn({ list, allTickets, sortOverride, dragHandleProps }:
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Column header — drag handle + title (ColumnEditor wraps this for click-to-edit) */}
-      <div className="group mb-2 flex cursor-pointer items-center gap-1 rounded-md py-0.5 transition-colors hover:bg-zinc-800/50">
-        {dragHandleProps && (
-          <button
-            {...dragHandleProps}
-            className="cursor-grab rounded p-0.5 text-zinc-700 transition-colors hover:text-zinc-400 active:cursor-grabbing"
-            onClick={e => e.stopPropagation()}
-          >
-            <DotsSixVertical size={14} />
-          </button>
-        )}
+      {/* Column header — entire row is drag handle (ColumnEditor wraps for click-to-edit) */}
+      <div
+        {...(dragHandleProps ?? {})}
+        className="group mb-2 flex cursor-grab items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-zinc-800/50 active:cursor-grabbing"
+      >
+        <DotsSixVertical size={12} className="shrink-0 text-zinc-700 group-hover:text-zinc-500" />
         <span className="text-xs font-medium text-zinc-300">{list.name}</span>
         <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500">
           {tickets.length}
         </span>
-        <Pencil size={10} className="ml-auto text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100" />
+        <Pencil size={10} className="ml-auto shrink-0 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
 
       {/* Scrollable card list */}
