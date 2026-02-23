@@ -80,7 +80,7 @@ export function ColumnEditor({ column, onUpdate, onDelete, children }: ColumnEdi
   const [editing, setEditing] = useState(false)
 
   const handleSave = useCallback(() => {
-    onUpdate({ name: name.trim() || column.name, filters, sortField, sortDir })
+    onUpdate({ id: column.id, name: name.trim() || column.name, filters, sortField, sortDir })
     setEditing(false)
   }, [name, filters, sortField, sortDir, column.name, onUpdate])
 

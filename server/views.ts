@@ -33,7 +33,21 @@ export function readViews(projectId: string): SavedView[] {
   const path = viewsPath(projectId)
   if (!existsSync(path)) return []
   try {
-    return JSON.parse(readFileSync(path, 'utf-8'))
+    const views: SavedView[] = JSON.parse(readFileSync(path, 'utf-8'))
+    // Backfill column IDs for views created before SavedList.id existed
+    let migrated = false
+    for (const v of views) {
+      if (v.columns) {
+        for (const col of v.columns) {
+          if (!col.id) {
+            col.id = genId()
+            migrated = true
+          }
+        }
+      }
+    }
+    if (migrated) writeViews(projectId, views)
+    return views
   } catch {
     return []
   }
@@ -84,6 +98,7 @@ const DEFAULT_LIST_VIEW: SavedView = {
   name: 'Open & In Progress',
   mode: 'list',
   list: {
+    id: 'list-default',
     name: 'Open & In Progress',
     filters: [{ id: 'default-status', field: 'status', operator: 'any_of', value: ['open', 'in_progress'] }],
     sortField: 'created',
@@ -96,9 +111,9 @@ const DEFAULT_BOARD_VIEW: SavedView = {
   name: 'Status Board',
   mode: 'board',
   columns: [
-    { name: 'Open', filters: [{ id: 'col-open', field: 'status', operator: 'any_of', value: ['open'] }], sortField: 'priority', sortDir: 'asc' },
-    { name: 'In Progress', filters: [{ id: 'col-ip', field: 'status', operator: 'any_of', value: ['in_progress'] }], sortField: 'priority', sortDir: 'asc' },
-    { name: 'Closed', filters: [{ id: 'col-closed', field: 'status', operator: 'any_of', value: ['closed'] }], sortField: 'created', sortDir: 'desc' },
+    { id: 'col-open', name: 'Open', filters: [{ id: 'f-col-open', field: 'status', operator: 'any_of', value: ['open'] }], sortField: 'priority', sortDir: 'asc' },
+    { id: 'col-ip', name: 'In Progress', filters: [{ id: 'f-col-ip', field: 'status', operator: 'any_of', value: ['in_progress'] }], sortField: 'priority', sortDir: 'asc' },
+    { id: 'col-closed', name: 'Closed', filters: [{ id: 'f-col-closed', field: 'status', operator: 'any_of', value: ['closed'] }], sortField: 'created', sortDir: 'desc' },
   ],
 }
 

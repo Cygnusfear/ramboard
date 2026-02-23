@@ -45,6 +45,8 @@ export const PRIORITY_LABELS: Record<number, string> = {
 // ── Saved Views ───────────────────────────────────────────────
 
 export interface SavedList {
+  /** Stable identity for drag-and-drop reordering */
+  id: string
   name: string
   filters: import('./filter-engine').FilterClause[]
   sortField: SortField

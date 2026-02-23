@@ -51,6 +51,7 @@ const PRESETS: PresetDef[] = [
     label: 'By Status',
     generate: () =>
       ['open', 'in_progress', 'closed'].map(s => ({
+        id: createFilterId(),
         name: STATUS_LABELS[s] ?? s,
         filters: [{ id: createFilterId(), field: 'status' as const, operator: 'any_of' as const, value: [s] }],
         sortField: 'priority' as SortField,
@@ -62,6 +63,7 @@ const PRESETS: PresetDef[] = [
     label: 'By Type',
     generate: () =>
       ['bug', 'feature', 'task', 'chore', 'epic'].map(t => ({
+        id: createFilterId(),
         name: t.charAt(0).toUpperCase() + t.slice(1),
         filters: [{ id: createFilterId(), field: 'type' as const, operator: 'any_of' as const, value: [t] }],
         sortField: 'priority' as SortField,
@@ -73,6 +75,7 @@ const PRESETS: PresetDef[] = [
     label: 'By Priority',
     generate: () =>
       [0, 1, 2, 3].map(p => ({
+        id: createFilterId(),
         name: PRIORITY_LABELS[p],
         filters: [{ id: createFilterId(), field: 'priority' as const, operator: 'any_of' as const, value: [String(p)] }],
         sortField: 'created' as SortField,
@@ -252,10 +255,9 @@ export function BoardView() {
   const columns = activeView?.columns ?? []
   const sortOverride = activeView?.boardSort
 
-  // Stable IDs for sortable — index-based since SavedList has no id
   const columnIds = useMemo(
-    () => columns.map((_, i) => `col-${i}`),
-    [columns.length], // regenerate only when count changes
+    () => columns.map(c => c.id),
+    [columns],
   )
 
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -314,6 +316,7 @@ export function BoardView() {
 
   const handleAddColumn = useCallback(() => {
     const newCol: SavedList = {
+      id: createFilterId(),
       name: `Column ${columns.length + 1}`,
       filters: [],
       sortField: 'priority',

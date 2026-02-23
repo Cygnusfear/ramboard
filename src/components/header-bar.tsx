@@ -26,7 +26,7 @@ function SaveAsDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
     const saved = await saveView(activeProjectId, {
       name: name.trim(),
       mode: 'list',
-      list: { name: name.trim(), filters, sortField, sortDir },
+      list: { id: crypto.randomUUID().slice(0, 8), name: name.trim(), filters, sortField, sortDir },
     })
     setName('')
     onClose()
