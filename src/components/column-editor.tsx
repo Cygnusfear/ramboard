@@ -1,37 +1,29 @@
 /**
  * Column editor popover — inline editing of a board column's name, filters, and sort.
- * Reuses the same filter editing patterns as filter-bar.tsx (operator selector,
- * multi-select with search, date presets, text input).
+ * All filter editing primitives come from filter-primitives.tsx — zero duplication.
  */
 import { useState, useCallback } from 'react'
 import { Popover } from '@base-ui/react/popover'
-import { Checkbox } from '@base-ui/react/checkbox'
 import {
   type FilterField,
   type FilterOperator,
   FILTER_FIELDS,
   FIELD_LABELS,
   FIELD_OPERATORS,
-  OPERATOR_LABELS,
-  DATE_PRESETS,
-  uniqueFieldValues,
   createFilterId,
 } from '@/lib/filter-engine'
 import type { FilterClause } from '@/lib/filter-engine'
 import type { SavedList, SortField, SortDir } from '@/lib/types'
-import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/types'
-import { useTicketStore } from '@/stores/ticket-store'
 import { getDefaultValue } from '@/stores/filter-store'
+import { FilterRow } from './filter-primitives'
 import {
   Plus,
-  X,
-  Check,
   Trash,
   SortAscending,
   SortDescending,
 } from '@phosphor-icons/react'
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Sort field options ────────────────────────────────────────
 
 const SORT_FIELDS: { value: SortField; label: string }[] = [
   { value: 'priority', label: 'Priority' },
@@ -41,210 +33,10 @@ const SORT_FIELDS: { value: SortField; label: string }[] = [
   { value: 'title', label: 'Title' },
 ]
 
-function labelForOption(field: FilterField, val: string): string {
-  if (field === 'status') return STATUS_LABELS[val] ?? val
-  if (field === 'priority') return PRIORITY_LABELS[Number(val)] ?? `P${val}`
-  return val
-}
-
-// ── Filter row — full editor with operator + value ────────────
-
-function FilterRow({
-  clause,
-  onUpdate,
-  onRemove,
-}: {
-  clause: FilterClause
-  onUpdate: (patch: Partial<FilterClause>) => void
-  onRemove: () => void
-}) {
-  const tickets = useTicketStore(s => s.tickets)
-  const operators = FIELD_OPERATORS[clause.field]
-  const options = uniqueFieldValues(tickets, clause.field)
-
-  return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-2">
-      {/* Header: field name + remove */}
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[11px] font-medium text-zinc-400">{FIELD_LABELS[clause.field]}</span>
-        <button onClick={onRemove} className="text-zinc-600 hover:text-zinc-300">
-          <X size={10} />
-        </button>
-      </div>
-
-      {/* Operator selector */}
-      <div className="mb-2 flex flex-wrap gap-1">
-        {operators.map(op => (
-          <button
-            key={op}
-            onClick={() => onUpdate({ operator: op })}
-            className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
-              clause.operator === op
-                ? 'bg-blue-500/20 text-blue-400'
-                : 'text-zinc-600 hover:text-zinc-300'
-            }`}
-          >
-            {OPERATOR_LABELS[op]}
-          </button>
-        ))}
-      </div>
-
-      {/* Value editor — field-type-dependent */}
-      {clause.field === 'created' ? (
-        <DateValueEditor clause={clause} onUpdate={onUpdate} />
-      ) : clause.field === 'title' ? (
-        <TextValueEditor clause={clause} onUpdate={onUpdate} />
-      ) : (
-        <MultiSelectEditor clause={clause} options={options} onUpdate={onUpdate} />
-      )}
-    </div>
-  )
-}
-
-// ── Multi-select value editor ─────────────────────────────────
-
-function MultiSelectEditor({
-  clause,
-  options,
-  onUpdate,
-}: {
-  clause: FilterClause
-  options: string[]
-  onUpdate: (patch: Partial<FilterClause>) => void
-}) {
-  const selected = Array.isArray(clause.value) ? (clause.value as string[]).map(String) : []
-  const [search, setSearch] = useState('')
-
-  const filtered = search
-    ? options.filter(o => o.toLowerCase().includes(search.toLowerCase()))
-    : options
-
-  const toggle = (val: string) => {
-    const next = selected.includes(val)
-      ? selected.filter(v => v !== val)
-      : [...selected, val]
-    onUpdate({ value: next })
-  }
-
-  return (
-    <div>
-      {options.length > 6 && (
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search..."
-          className="mb-1.5 w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-600"
-        />
-      )}
-      <div className="flex max-h-[140px] flex-col gap-0.5 overflow-auto">
-        {filtered.map(opt => {
-          const checked = selected.includes(opt)
-          return (
-            <label
-              key={opt}
-              className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-0.5 text-[11px] text-zinc-300 hover:bg-zinc-800"
-            >
-              <Checkbox.Root
-                checked={checked}
-                onCheckedChange={() => toggle(opt)}
-                className="flex size-3 items-center justify-center rounded-sm border border-zinc-600 data-[checked]:border-blue-500 data-[checked]:bg-blue-500"
-              >
-                <Checkbox.Indicator className="flex text-white data-[unchecked]:hidden">
-                  <Check size={8} weight="bold" />
-                </Checkbox.Indicator>
-              </Checkbox.Root>
-              <span>{labelForOption(clause.field, opt)}</span>
-            </label>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ── Date value editor ─────────────────────────────────────────
-
-function DateValueEditor({
-  clause,
-  onUpdate,
-}: {
-  clause: FilterClause
-  onUpdate: (patch: Partial<FilterClause>) => void
-}) {
-  if (clause.operator === 'last_n_days' || clause.operator === 'older_than' || clause.operator === 'newer_than') {
-    return (
-      <div className="flex flex-col gap-0.5">
-        {DATE_PRESETS.map(p => (
-          <button
-            key={p.days}
-            onClick={() => onUpdate({ value: p.days })}
-            className={`rounded px-2 py-0.5 text-left text-[11px] transition-colors ${
-              clause.value === p.days
-                ? 'bg-blue-500/20 text-blue-400'
-                : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-    )
-  }
-
-  if (clause.operator === 'between') {
-    const [start, end] = Array.isArray(clause.value) ? (clause.value as [string, string]) : ['', '']
-    return (
-      <div className="flex flex-col gap-1">
-        <input
-          type="date"
-          value={start}
-          onChange={e => onUpdate({ value: [e.target.value, end] })}
-          className="rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-200 outline-none focus:border-zinc-600"
-        />
-        <input
-          type="date"
-          value={end}
-          onChange={e => onUpdate({ value: [start, e.target.value] })}
-          className="rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-200 outline-none focus:border-zinc-600"
-        />
-      </div>
-    )
-  }
-
-  return (
-    <input
-      type="date"
-      value={typeof clause.value === 'string' ? clause.value : ''}
-      onChange={e => onUpdate({ value: e.target.value })}
-      className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-200 outline-none focus:border-zinc-600"
-    />
-  )
-}
-
-// ── Text value editor ─────────────────────────────────────────
-
-function TextValueEditor({
-  clause,
-  onUpdate,
-}: {
-  clause: FilterClause
-  onUpdate: (patch: Partial<FilterClause>) => void
-}) {
-  return (
-    <input
-      value={typeof clause.value === 'string' ? clause.value : ''}
-      onChange={e => onUpdate({ value: e.target.value })}
-      placeholder="Search text..."
-      className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-600"
-    />
-  )
-}
-
 // ── Add filter field picker ───────────────────────────────────
 
 function AddFilterButton({ onAdd }: { onAdd: (field: FilterField) => void }) {
   const [open, setOpen] = useState(false)
-  const fields = FILTER_FIELDS
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -255,7 +47,7 @@ function AddFilterButton({ onAdd }: { onAdd: (field: FilterField) => void }) {
       <Popover.Portal>
         <Popover.Positioner sideOffset={4} className="z-[60]">
           <Popover.Popup className="rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
-            {fields.map(f => (
+            {FILTER_FIELDS.map(f => (
               <button
                 key={f}
                 onClick={() => { onAdd(f); setOpen(false) }}
