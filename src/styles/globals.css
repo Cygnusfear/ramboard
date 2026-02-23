@@ -24,6 +24,11 @@ code, .font-mono {
   animation: row-in 0.2s ease-out both;
 }
 
+/* List row hover — pure CSS, no React re-render */
+.list-row:hover {
+  background-color: color-mix(in srgb, var(--color-zinc-800) 25%, transparent);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

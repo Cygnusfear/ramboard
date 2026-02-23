@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState, forwardRef } from 'react'
+import { useRef, useCallback, useEffect, useState, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useUIStore } from '@/stores/ui-store'
 import { useProjectStore } from '@/stores/project-store'
@@ -22,8 +22,8 @@ import type { SortField, TicketSummary } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────
 
-/** Estimated row height — actual height measured dynamically by virtualizer */
-const ROW_HEIGHT_ESTIMATE = 36
+/** Fixed row height enforced by CSS — no dynamic measurement needed */
+const ROW_HEIGHT = 36
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -55,7 +55,7 @@ function SortHeader({ field, label, className }: { field: SortField; label: stri
   return (
     <button
       onClick={() => setSort(field)}
-      className={`flex items-center gap-0.5 text-[11px] uppercase tracking-wider transition-colors select-none ${
+      className={`flex items-center gap-0.5 text-[11px] uppercase tracking-wider select-none ${
         active ? 'text-zinc-300' : 'text-zinc-600 hover:text-zinc-400'
       } ${className ?? ''}`}
     >
@@ -65,58 +65,39 @@ function SortHeader({ field, label, className }: { field: SortField; label: stri
   )
 }
 
-// ── Single row ────────────────────────────────────────────────
+// ── Single row — memoized, no transitions during scroll ───────
 
-const ListRow = forwardRef<HTMLDivElement, {
-  ticket: TicketSummary
-  index: number
-  virtualIndex: number
-  isHighlighted: boolean
-  isSelected: boolean
-  onMouseDown: (e: React.MouseEvent) => void
-  onMouseEnter: (e: React.MouseEvent) => void
-  onClick: () => void
-  onStatusClick: (e: React.MouseEvent) => void
-  onCheckboxClick: (e: React.MouseEvent) => void
-  style: React.CSSProperties
-}>(function ListRow({
+const ListRow = memo(function ListRow({
   ticket,
   index,
-  virtualIndex,
   isHighlighted,
   isSelected,
-  onMouseDown,
-  onMouseEnter,
-  onClick,
-  onStatusClick,
-  onCheckboxClick,
-  style,
-}, ref) {
+}: {
+  ticket: TicketSummary
+  index: number
+  isHighlighted: boolean
+  isSelected: boolean
+}) {
   return (
     <div
-      ref={ref}
-      data-index={virtualIndex}
-      onMouseDown={onMouseDown}
-      onMouseEnter={onMouseEnter}
-      onClick={onClick}
-      style={style}
-      className={`group/row absolute left-0 top-0 grid w-full cursor-default grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-3 py-1 transition-colors duration-75 ${
+      data-index={index}
+      className={`list-row group/row grid h-9 w-full cursor-default grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-3 ${
         isSelected
           ? 'bg-blue-500/[0.07]'
           : isHighlighted
             ? 'bg-zinc-800/40'
-            : 'hover:bg-zinc-800/25'
+            : ''
       }`}
     >
       {/* Checkbox */}
       <div
-        onClick={onCheckboxClick}
+        data-action="checkbox"
         className={`flex items-center justify-center ${
           isSelected ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
-        } transition-opacity duration-75`}
+        }`}
       >
         <div
-          className={`flex size-4 items-center justify-center rounded border transition-all duration-75 ${
+          className={`flex size-4 items-center justify-center rounded border ${
             isSelected
               ? 'border-blue-500 bg-blue-500'
               : 'border-zinc-600 hover:border-zinc-400'
@@ -127,7 +108,7 @@ const ListRow = forwardRef<HTMLDivElement, {
       </div>
 
       {/* Title + ID + Tags */}
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden">
         <span className="shrink-0 font-mono text-[11px] text-zinc-600">{ticket.id}</span>
         <span className="truncate text-[13px] leading-tight text-zinc-200">{ticket.title}</span>
         {ticket.tags.length > 0 && (
@@ -143,10 +124,7 @@ const ListRow = forwardRef<HTMLDivElement, {
       </div>
 
       {/* Status — clickable to cycle */}
-      <div
-        onClick={onStatusClick}
-        className="flex cursor-pointer justify-center transition-opacity hover:opacity-80"
-      >
+      <div data-action="status" className="flex cursor-pointer justify-center">
         <StatusDot status={ticket.status} showLabel />
       </div>
 
@@ -166,21 +144,37 @@ export function ListView() {
   const { updateTicketStatus } = useTicketStore()
   const [, navigate] = useLocation()
 
-  // Drag-select state lives in a ref for perf during mousemove
+  // Drag-select state in ref for perf
   const dsRef = useRef<DragSelectState>(createDragSelectState())
   const [selection, setSelection] = useState<Set<number>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Virtualizer with dynamic measurement
+  // Track scrolling to suppress mouseEnter highlights
+  const isScrolling = useRef(false)
+  const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Virtualizer — fixed row height, no measurement, pure math
   const virtualizer = useVirtualizer({
     count: tickets.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT_ESTIMATE,
-    overscan: 15,
-    measureElement: (el) => el.getBoundingClientRect().height,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 20,
   })
 
-  // Sync selection set to the UI store for bulk action bar
+  // Detect scroll to suppress mouseEnter
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    function onScroll() {
+      isScrolling.current = true
+      clearTimeout(scrollTimer.current)
+      scrollTimer.current = setTimeout(() => { isScrolling.current = false }, 100)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Sync selection to UI store for bulk action bar
   const selectedIds = useUIStore(s => s.selectedIds)
   useEffect(() => {
     const ids = new Set<string>()
@@ -197,25 +191,61 @@ export function ListView() {
     setSelection(new Set(state.selection))
   }, [])
 
+  // Single event handler on the container — no per-row handlers
+  const handleContainerEvent = useCallback((e: React.MouseEvent) => {
+    const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
+    if (!row) return
+    const idx = parseInt(row.dataset.index!, 10)
+    const ticket = tickets[idx]
+    if (!ticket) return
+
+    if (e.type === 'mousedown') {
+      if (e.button !== 0) return
+      const action = (e.target as HTMLElement).closest('[data-action]')
+      if (action?.getAttribute('data-action') === 'checkbox') {
+        e.stopPropagation()
+        commitSelection(dragStart(dsRef.current, idx, { meta: true }))
+        return
+      }
+      if (action?.getAttribute('data-action') === 'status') return // let click handle it
+      e.preventDefault()
+      commitSelection(dragStart(dsRef.current, idx, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey }))
+    }
+
+    if (e.type === 'click') {
+      const action = (e.target as HTMLElement).closest('[data-action]')
+      if (action?.getAttribute('data-action') === 'status') {
+        e.stopPropagation()
+        if (activeProjectId) {
+          updateTicketStatus(activeProjectId, ticket.id, STATUS_CYCLE[ticket.status] ?? 'open')
+        }
+        return
+      }
+      if (action?.getAttribute('data-action') === 'checkbox') return // handled in mousedown
+      if (dsRef.current.selection.size <= 1 && activeProjectId) {
+        navigate(`/${activeProjectId}/ticket/${ticket.id}`)
+      }
+    }
+
+    if (e.type === 'mousemove') {
+      if (!isScrolling.current && !dsRef.current.dragging) {
+        setHighlightIndex(idx)
+      }
+    }
+  }, [tickets, activeProjectId, navigate, updateTicketStatus, commitSelection, setHighlightIndex])
+
   // Global mousemove/mouseup during drag
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dsRef.current.dragging) return
-
-      // Auto-scroll when near edges
       const container = scrollRef.current
       if (container) {
         const rect = container.getBoundingClientRect()
-        const edgeZone = 40 // px from edge to trigger scroll
+        const edgeZone = 40
         const speed = 8
-        if (e.clientY < rect.top + edgeZone) {
-          container.scrollTop -= speed
-        } else if (e.clientY > rect.bottom - edgeZone) {
-          container.scrollTop += speed
-        }
+        if (e.clientY < rect.top + edgeZone) container.scrollTop -= speed
+        else if (e.clientY > rect.bottom - edgeZone) container.scrollTop += speed
       }
-
-      // Find row under cursor
       const el = document.elementFromPoint(e.clientX, e.clientY)
       const row = el?.closest('[data-index]')
       if (row) {
@@ -224,13 +254,9 @@ export function ListView() {
         if (next !== dsRef.current) commitSelection(next)
       }
     }
-
     function onMouseUp() {
-      if (dsRef.current.dragging) {
-        commitSelection(dragEnd(dsRef.current))
-      }
+      if (dsRef.current.dragging) commitSelection(dragEnd(dsRef.current))
     }
-
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
     return () => {
@@ -239,64 +265,25 @@ export function ListView() {
     }
   }, [commitSelection])
 
-  // Keyboard: Escape clears selection, Cmd+A selects all
+  // Escape + Cmd+A
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && selection.size > 0) {
-        commitSelection(dragClear())
-      }
+      if (e.key === 'Escape' && selection.size > 0) commitSelection(dragClear())
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !(e.target as HTMLElement).closest('input,textarea,select')) {
         e.preventDefault()
         const all = new Set<number>()
         for (let i = 0; i < tickets.length; i++) all.add(i)
-        commitSelection({
-          dragging: false,
-          anchorIndex: 0,
-          currentIndex: tickets.length - 1,
-          baseSelection: all,
-          selection: all,
-        })
+        commitSelection({ dragging: false, anchorIndex: 0, currentIndex: tickets.length - 1, baseSelection: all, selection: all })
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selection.size, tickets.length, commitSelection])
 
-  // Scroll highlighted row into view via virtualizer
+  // Scroll to highlighted row on keyboard nav
   useEffect(() => {
-    virtualizer.scrollToIndex(highlightIndex, { align: 'auto', behavior: 'smooth' })
+    virtualizer.scrollToIndex(highlightIndex, { align: 'auto' })
   }, [highlightIndex, virtualizer])
-
-  const handleRowMouseDown = useCallback((index: number, e: React.MouseEvent) => {
-    if (e.button !== 0) return
-    if ((e.target as HTMLElement).closest('button, a, select, input')) return
-    e.preventDefault()
-    commitSelection(dragStart(dsRef.current, index, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey }))
-  }, [commitSelection])
-
-  const handleRowMouseEnter = useCallback((index: number) => {
-    if (!dsRef.current.dragging) {
-      setHighlightIndex(index)
-    }
-  }, [setHighlightIndex])
-
-  const handleRowClick = useCallback((ticket: TicketSummary) => {
-    if (dsRef.current.selection.size <= 1 && activeProjectId) {
-      navigate(`/${activeProjectId}/ticket/${ticket.id}`)
-    }
-  }, [activeProjectId, navigate])
-
-  const handleStatusClick = useCallback((e: React.MouseEvent, ticket: TicketSummary) => {
-    e.stopPropagation()
-    if (!activeProjectId) return
-    const next = STATUS_CYCLE[ticket.status] ?? 'open'
-    updateTicketStatus(activeProjectId, ticket.id, next)
-  }, [activeProjectId, updateTicketStatus])
-
-  const handleCheckboxClick = useCallback((e: React.MouseEvent, index: number) => {
-    e.stopPropagation()
-    commitSelection(dragStart(dsRef.current, index, { meta: true }))
-  }, [commitSelection])
 
   const virtualItems = virtualizer.getVirtualItems()
 
@@ -304,7 +291,7 @@ export function ListView() {
     <div className="flex flex-1 flex-col overflow-hidden select-none">
       {/* Column headers */}
       <div className="grid grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800 bg-zinc-950 px-3 py-1.5">
-        <div /> {/* checkbox col */}
+        <div />
         <SortHeader field="title" label="Title" />
         <SortHeader field="priority" label="Pri" className="justify-center" />
         <SortHeader field="status" label="Status" className="justify-center" />
@@ -325,38 +312,39 @@ export function ListView() {
       )}
 
       {/* Virtual scroll container */}
-      <div ref={scrollRef} className="flex-1 overflow-auto">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-auto"
+        onMouseDown={handleContainerEvent}
+        onClick={handleContainerEvent}
+        onMouseMove={handleContainerEvent}
+      >
         {tickets.length === 0 ? (
           <div className="flex h-40 items-center justify-center text-sm text-zinc-600">
             No tickets match your filters
           </div>
         ) : (
           <div
-            style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}
+            className="relative will-change-transform"
+            style={{ height: virtualizer.getTotalSize() }}
           >
-            {virtualItems.map((virtualRow) => {
-              const ticket = tickets[virtualRow.index]
+            {virtualItems.map((vrow) => {
+              const ticket = tickets[vrow.index]
               if (!ticket) return null
-              const idx = virtualRow.index
 
               return (
-                <ListRow
+                <div
                   key={ticket.id}
-                  ref={virtualizer.measureElement}
-                  ticket={ticket}
-                  index={idx}
-                  virtualIndex={virtualRow.index}
-                  isHighlighted={idx === highlightIndex}
-                  isSelected={selection.has(idx)}
-                  onMouseDown={(e) => handleRowMouseDown(idx, e)}
-                  onMouseEnter={() => handleRowMouseEnter(idx)}
-                  onClick={() => handleRowClick(ticket)}
-                  onStatusClick={(e) => handleStatusClick(e, ticket)}
-                  onCheckboxClick={(e) => handleCheckboxClick(e, idx)}
-                  style={{
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                />
+                  className="absolute left-0 top-0 w-full"
+                  style={{ height: ROW_HEIGHT, transform: `translateY(${vrow.start}px)` }}
+                >
+                  <ListRow
+                    ticket={ticket}
+                    index={vrow.index}
+                    isHighlighted={vrow.index === highlightIndex}
+                    isSelected={selection.has(vrow.index)}
+                  />
+                </div>
               )
             })}
           </div>
