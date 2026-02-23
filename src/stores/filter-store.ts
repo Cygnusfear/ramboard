@@ -32,6 +32,12 @@ const DEFAULT_FILTERS: FilterSet = [
   { id: 'default-status', field: 'status', operator: 'any_of', value: ['open', 'in_progress'] },
 ]
 
+/** Mark view dirty when filter state changes via user action */
+function notifyDirty() {
+  // Dynamic import to avoid circular deps — view-store imports are lazy
+  import('@/stores/view-store').then(m => m.useViewStore.getState().markDirty())
+}
+
 export const useFilterStore = create<FilterState>((set) => ({
   filters: DEFAULT_FILTERS,
   search: '',
@@ -44,26 +50,33 @@ export const useFilterStore = create<FilterState>((set) => ({
     const defaultValue = getDefaultValue(field, op)
     const clause: FilterClause = { id, field, operator: op, value: value ?? defaultValue }
     set(s => ({ filters: [...s.filters, clause] }))
+    notifyDirty()
     return id
   },
 
-  updateFilter: (id, patch) =>
+  updateFilter: (id, patch) => {
     set(s => ({
       filters: s.filters.map(f => (f.id === id ? { ...f, ...patch } : f)),
-    })),
+    }))
+    notifyDirty()
+  },
 
-  removeFilter: (id) =>
-    set(s => ({ filters: s.filters.filter(f => f.id !== id) })),
+  removeFilter: (id) => {
+    set(s => ({ filters: s.filters.filter(f => f.id !== id) }))
+    notifyDirty()
+  },
 
-  clearFilters: () => set({ filters: [], search: '' }),
+  clearFilters: () => { set({ filters: [], search: '' }); notifyDirty() },
 
-  setSearch: (search) => set({ search }),
+  setSearch: (search) => { set({ search }); notifyDirty() },
 
-  setSort: (field) =>
+  setSort: (field) => {
     set(s => ({
       sortField: field,
       sortDir: s.sortField === field && s.sortDir === 'asc' ? 'desc' : 'asc',
-    })),
+    }))
+    notifyDirty()
+  },
 }))
 
 function getDefaultValue(field: FilterField, operator: FilterOperator): FilterClause['value'] {

@@ -40,3 +40,24 @@ export const PRIORITY_LABELS: Record<number, string> = {
   2: 'Medium',
   3: 'Low',
 }
+
+// ── Saved Views ───────────────────────────────────────────────
+
+export interface SavedList {
+  name: string
+  filters: import('./filter-engine').FilterClause[]
+  sortField: SortField
+  sortDir: SortDir
+}
+
+export interface SavedView {
+  id: string
+  name: string
+  mode: 'list' | 'board'
+  /** List mode — single filtered list */
+  list?: SavedList
+  /** Board mode — columns rendered left-to-right, leftmost match wins */
+  columns?: SavedList[]
+  /** Board-level sort override (applies to all columns when set) */
+  boardSort?: { field: SortField; dir: SortDir }
+}

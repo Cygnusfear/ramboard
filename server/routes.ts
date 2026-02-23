@@ -2,6 +2,7 @@ import { join } from 'path'
 import { readConfig, addProject, removeProject, hasTickets } from './config'
 import { parseTicketsDir, type Ticket } from './ticket-parser'
 import { updateTicketFile, toggleCheckbox, type TicketUpdate } from './ticket-writer'
+import { readViews, createView, updateView, deleteView, seedDefaultViews } from './views'
 
 function getProject(id: string) {
   return readConfig().projects.find(p => p.id === id)
@@ -151,6 +152,43 @@ export async function handleApi(req: Request): Promise<Response | null> {
 
     if (!success) return json({ error: 'ticket not found' }, 404)
     return json({ ok: true })
+  }
+
+  // ── Views ────────────────────────────────────────────────────
+
+  // GET /api/projects/:id/views
+  const viewsListMatch = path.match(/^\/api\/projects\/([^\/]+)\/views$/)
+  if (method === 'GET' && viewsListMatch) {
+    const projectId = viewsListMatch[1]
+    if (!getProject(projectId)) return json({ error: 'project not found' }, 404)
+    seedDefaultViews(projectId)
+    return json(readViews(projectId))
+  }
+
+  // POST /api/projects/:id/views
+  if (method === 'POST' && viewsListMatch) {
+    const projectId = viewsListMatch[1]
+    if (!getProject(projectId)) return json({ error: 'project not found' }, 404)
+    const body = await req.json()
+    const view = createView(projectId, body)
+    return json(view, 201)
+  }
+
+  // PUT /api/projects/:id/views/:viewId
+  const viewDetailMatch = path.match(/^\/api\/projects\/([^\/]+)\/views\/([^\/]+)$/)
+  if (method === 'PUT' && viewDetailMatch) {
+    const [, projectId, viewId] = viewDetailMatch
+    if (!getProject(projectId)) return json({ error: 'project not found' }, 404)
+    const body = await req.json()
+    const updated = updateView(projectId, viewId, body)
+    return updated ? json(updated) : json({ error: 'view not found' }, 404)
+  }
+
+  // DELETE /api/projects/:id/views/:viewId
+  if (method === 'DELETE' && viewDetailMatch) {
+    const [, projectId, viewId] = viewDetailMatch
+    if (!getProject(projectId)) return json({ error: 'project not found' }, 404)
+    return deleteView(projectId, viewId) ? json({ ok: true }) : json({ error: 'view not found' }, 404)
   }
 
   return null

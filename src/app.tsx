@@ -3,6 +3,8 @@ import { Route, Switch, Redirect, useRoute, useLocation } from 'wouter'
 import { useProjectStore } from '@/stores/project-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useUIStore } from '@/stores/ui-store'
+import { useViewStore } from '@/stores/view-store'
+import { useFilterStore } from '@/stores/filter-store'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { ProjectRail } from '@/components/project-rail'
 import { HeaderBar } from '@/components/header-bar'
@@ -26,10 +28,12 @@ function ProjectView() {
   const projectId = params?.projectId ?? null
   const { fetchTickets, clearActiveTicket, loading } = useTicketStore()
   const { setActiveProject, activeProjectId } = useProjectStore()
-  const { viewMode } = useUIStore()
+  const { fetchViews, views, activeViewId } = useViewStore()
+
+  const activeView = views.find(v => v.id === activeViewId)
+  const viewMode = activeView?.mode ?? 'list'
 
   useEffect(() => {
-    // Clear ticket detail when navigating to list view
     clearActiveTicket()
     if (projectId && projectId !== activeProjectId) {
       setActiveProject(projectId)
@@ -37,8 +41,20 @@ function ProjectView() {
   }, [projectId, activeProjectId, setActiveProject, clearActiveTicket])
 
   useEffect(() => {
-    if (projectId) fetchTickets(projectId)
-  }, [projectId, fetchTickets])
+    if (projectId) {
+      fetchTickets(projectId)
+      fetchViews(projectId)
+    }
+  }, [projectId, fetchTickets, fetchViews])
+
+  // When active view changes, load its filters into filter store (list mode)
+  useEffect(() => {
+    if (activeView?.mode === 'list' && activeView.list) {
+      const { filters, sortField, sortDir } = activeView.list
+      useFilterStore.setState({ filters, sortField, sortDir })
+      useViewStore.getState().markClean()
+    }
+  }, [activeViewId, activeView])
 
   return (
     <>
