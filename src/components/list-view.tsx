@@ -145,9 +145,10 @@ export function ListView() {
   const { updateTicketStatus } = useTicketStore()
   const [, navigate] = useLocation()
 
-  // Drag-select state in ref for perf
+  // Drag-select engine works with indices (for range math).
+  // Committed selection is ticket IDs — stable across re-sorts/re-filters.
   const dsRef = useRef<DragSelectState>(createDragSelectState())
-  const [selection, setSelection] = useState<Set<number>>(new Set())
+  const [selection, setSelection] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Track scrolling to suppress mouseEnter highlights
@@ -164,10 +165,16 @@ export function ListView() {
     meta: boolean
   } | null>(null)
 
+  /** Commit drag-select engine state → convert indices to ticket IDs */
   const commitSelection = useCallback((state: DragSelectState) => {
     dsRef.current = state
-    setSelection(new Set(state.selection))
-  }, [])
+    const ids = new Set<string>()
+    for (const idx of state.selection) {
+      const t = tickets[idx]
+      if (t) ids.add(t.id)
+    }
+    setSelection(ids)
+  }, [tickets])
 
   // Context menu — track which tickets the right-click applies to
   const [contextTargets, setContextTargets] = useState<TicketSummary[]>([])
@@ -180,8 +187,8 @@ export function ListView() {
     if (!ticket) return
 
     // If right-clicked row is already selected, menu applies to all selected
-    if (selection.has(idx)) {
-      setContextTargets([...selection].map(i => tickets[i]).filter(Boolean))
+    if (selection.has(ticket.id)) {
+      setContextTargets(tickets.filter(t => selection.has(t.id)))
     } else {
       // Select just this row, menu applies to it alone
       commitSelection(dragStart(createDragSelectState(), idx, {}))
@@ -227,17 +234,10 @@ export function ListView() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Sync selection to UI store for bulk action bar
-  const selectedIds = useUIStore(s => s.selectedIds)
+  // Sync selection (already ticket IDs) to UI store for bulk action bar
   useEffect(() => {
-    const ids = new Set<string>()
-    for (const idx of selection) {
-      if (tickets[idx]) ids.add(tickets[idx].id)
-    }
-    if (ids.size !== selectedIds.size || [...ids].some(id => !selectedIds.has(id))) {
-      useUIStore.setState({ selectedIds: ids })
-    }
-  }, [selection, tickets])
+    useUIStore.setState({ selectedIds: selection })
+  }, [selection])
 
   // Single event handler on the container — no per-row handlers
   //
@@ -295,7 +295,8 @@ export function ListView() {
       }
       // Click with no modifiers while items are selected → clear selection
       if (selection.size > 0 && !e.shiftKey && !e.metaKey && !e.ctrlKey && !dsRef.current.dragging) {
-        commitSelection(dragClear())
+        dsRef.current = createDragSelectState()
+        setSelection(new Set())
       }
     }
 
@@ -304,7 +305,7 @@ export function ListView() {
         setHighlightIndex(idx)
       }
     }
-  }, [tickets, activeProjectId, navigate, updateTicketStatus, commitSelection, setHighlightIndex])
+  }, [tickets, activeProjectId, navigate, updateTicketStatus, commitSelection, setHighlightIndex, selection])
 
   // Global mousemove/mouseup during drag
   useEffect(() => {
@@ -351,20 +352,21 @@ export function ListView() {
     }
   }, [commitSelection])
 
-  // Escape + Cmd+A
+  // Escape + Cmd+A — clear uses setSelection directly to avoid stale index issues
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && selection.size > 0) commitSelection(dragClear())
+      if (e.key === 'Escape' && selection.size > 0) {
+        dsRef.current = createDragSelectState()
+        setSelection(new Set())
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !(e.target as HTMLElement).closest('input,textarea,select')) {
         e.preventDefault()
-        const all = new Set<number>()
-        for (let i = 0; i < tickets.length; i++) all.add(i)
-        commitSelection({ dragging: false, anchorIndex: 0, currentIndex: tickets.length - 1, baseSelection: all, selection: all })
+        setSelection(new Set(tickets.map(t => t.id)))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selection.size, tickets.length, commitSelection])
+  }, [selection.size, tickets])
 
   // Scroll to highlighted row on keyboard nav
   useEffect(() => {
@@ -436,7 +438,7 @@ export function ListView() {
                     ticket={ticket}
                     index={vrow.index}
                     isHighlighted={vrow.index === highlightIndex}
-                    isSelected={selection.has(vrow.index)}
+                    isSelected={selection.has(ticket.id)}
                   />
                 </div>
               )
