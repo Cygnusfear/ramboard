@@ -10,14 +10,14 @@ Multi-project kanban board that reads `.tickets/` directories. Linear-style UI w
 | Server | `Bun.serve()` | No framework. Route matching + static files |
 | Frontend | React 19 + Vite | HMR in dev, static build for prod |
 | Styling | Tailwind v4 | Utility-first, no custom CSS files |
-| Animation | `animejs` (v4) | Staggered lists, spring settle, card hover, column reflow |
+| Animation | CSS first, `animejs` (v4) fallback | CSS for hover/focus/stagger/transitions. anime.js for spring physics + orchestration |
 | Drag & Drop | `@dnd-kit/core` + `@dnd-kit/sortable` | Best React DnD lib, Linear uses it |
 | Markdown | `react-markdown` + `remark-gfm` | GFM tables, checkboxes, code blocks |
 | Icons | `@phosphor-icons/react` | No emoji. Ever. |
 | Fonts | `Geist` + `Geist Mono` | Clean engineering aesthetic |
 | State | Zustand | Lightweight, no boilerplate |
 
-**No framer-motion. No sliding panels.** But this is not a dead UI either — we use `anime.js` for tasteful, purposeful motion: staggered list entry on data load, spring physics on drag-drop settle, subtle scale on card hover, smooth column reflow. Animations serve comprehension (where did that card go?) not decoration. Keep durations short (100-250ms), easing natural (`easeOutExpo`, spring).
+**No framer-motion. No sliding panels.** But this is not a dead UI either. **CSS first** for all motion — `transition`, `@keyframes`, `animation-delay` cascades. CSS handles hover states, focus rings, color shifts, scale transforms, opacity fades, and staggered entry via `calc(var(--i) * 40ms)`. Reach for `anime.js` only when CSS can't do it: spring physics on drag-drop settle, complex orchestrated sequences, dynamic stagger counts unknown at CSS time. Animations serve comprehension (where did that card go?) not decoration. Keep durations short (100-250ms), easing natural (`cubic-bezier(0.16, 1, 0.3, 1)` for CSS, `easeOutExpo`/spring for anime.js).
 
 ## Color System
 
