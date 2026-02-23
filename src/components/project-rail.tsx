@@ -2,6 +2,17 @@ import { useProjectStore } from '@/stores/project-store'
 import { useLocation } from 'wouter'
 import { Gear } from '@phosphor-icons/react'
 
+/** Get a 2-letter abbreviation from a project name */
+function abbrev(name: string): string {
+  const words = name.replace(/[-_]/g, ' ').split(/\s+/).filter(Boolean)
+  if (words.length >= 2) {
+    // First letter of first two words: "TotalRecall" → "TR", "Pi Agent" → "PA"
+    return (words[0][0] + words[1][0]).toUpperCase()
+  }
+  // Single word — first two chars: "Trek" → "Tr", "Pi" → "Pi"
+  return name.slice(0, 2)
+}
+
 export function ProjectRail() {
   const { projects, activeProjectId } = useProjectStore()
   const [, navigate] = useLocation()
@@ -19,13 +30,13 @@ export function ProjectRail() {
             <button
               onClick={() => navigate(`/${project.id}`)}
               title={project.name}
-              className={`flex size-10 items-center justify-center rounded-xl text-sm font-medium transition-all duration-150 ${
+              className={`flex size-10 items-center justify-center rounded-xl text-xs font-semibold tracking-tight transition-all duration-150 ${
                 isActive
                   ? 'bg-zinc-700 text-zinc-100'
                   : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 hover:scale-105'
               }`}
             >
-              {project.name[0].toUpperCase()}
+              {abbrev(project.name)}
             </button>
 
             <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 rounded-md bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">

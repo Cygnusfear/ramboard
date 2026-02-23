@@ -1,10 +1,10 @@
 import { join } from 'path'
-import config from '../ramboard.config'
+import { readConfig, addProject, removeProject, hasTickets } from './config'
 import { parseTicketsDir, type Ticket } from './ticket-parser'
 import { updateTicketFile, toggleCheckbox, type TicketUpdate } from './ticket-writer'
 
 function getProject(id: string) {
-  return config.projects.find(p => p.id === id)
+  return readConfig().projects.find(p => p.id === id)
 }
 
 function ticketsPath(projectPath: string): string {
@@ -23,20 +23,41 @@ export async function handleApi(req: Request): Promise<Response | null> {
   const path = url.pathname
   const method = req.method
 
+  // ── Project management ────────────────────────────────────
+
   // GET /api/projects
   if (method === 'GET' && path === '/api/projects') {
-    const projects = await Promise.all(
-      config.projects.map(async (p) => {
+    const { projects } = readConfig()
+    const result = await Promise.all(
+      projects.map(async (p) => {
         const tickets = await parseTicketsDir(ticketsPath(p.path), p.id)
-        const counts = { open: 0, in_progress: 0, closed: 0, cancelled: 0 }
+        const counts: Record<string, number> = { open: 0, in_progress: 0, closed: 0, cancelled: 0 }
         for (const t of tickets) {
-          counts[t.status as keyof typeof counts]++
+          counts[t.status] = (counts[t.status] ?? 0) + 1
         }
-        return { id: p.id, name: p.name, counts, total: tickets.length }
+        return { id: p.id, name: p.name, path: p.path, counts, total: tickets.length }
       })
     )
-    return json(projects)
+    return json(result)
   }
+
+  // POST /api/projects — add a project { path: "/abs/path" }
+  if (method === 'POST' && path === '/api/projects') {
+    const body = await req.json() as { path?: string }
+    if (!body.path) return json({ error: 'path required' }, 400)
+    if (!hasTickets(body.path)) return json({ error: 'no .tickets/ in that directory' }, 400)
+    const entry = addProject(body.path)
+    return json(entry, 201)
+  }
+
+  // DELETE /api/projects/:id — remove a project
+  const deleteProjectMatch = path.match(/^\/api\/projects\/([^\/]+)$/)
+  if (method === 'DELETE' && deleteProjectMatch) {
+    const removed = removeProject(deleteProjectMatch[1])
+    return removed ? json({ ok: true }) : json({ error: 'not found' }, 404)
+  }
+
+  // ── Tickets ───────────────────────────────────────────────
 
   // GET /api/projects/:id/tickets
   const ticketListMatch = path.match(/^\/api\/projects\/([^\/]+)\/tickets$/)
@@ -46,7 +67,6 @@ export async function handleApi(req: Request): Promise<Response | null> {
 
     let tickets = await parseTicketsDir(ticketsPath(project.path), project.id)
 
-    // Filter by query params
     const status = url.searchParams.get('status')
     const priority = url.searchParams.get('priority')
     const tag = url.searchParams.get('tag')
@@ -55,7 +75,6 @@ export async function handleApi(req: Request): Promise<Response | null> {
     if (priority) tickets = tickets.filter(t => t.priority === Number(priority))
     if (tag) tickets = tickets.filter(t => t.tags.includes(tag))
 
-    // Sort
     const sort = url.searchParams.get('sort') || 'priority'
     const dir = url.searchParams.get('dir') === 'desc' ? -1 : 1
     tickets.sort((a, b) => {
@@ -66,7 +85,6 @@ export async function handleApi(req: Request): Promise<Response | null> {
       return 0
     })
 
-    // Strip body for list response (lighter payload)
     const light = tickets.map(({ body, ...rest }) => rest)
     return json(light)
   }
@@ -93,12 +111,11 @@ export async function handleApi(req: Request): Promise<Response | null> {
     const success = await updateTicketFile(
       ticketsPath(project.path),
       ticketDetailMatch[2],
-      update
+      update,
     )
 
     if (!success) return json({ error: 'ticket not found' }, 404)
 
-    // Run tk command for status changes
     if (update.status) {
       const tid = ticketDetailMatch[2]
       let cmd: string | null = null
@@ -129,12 +146,12 @@ export async function handleApi(req: Request): Promise<Response | null> {
     const success = await toggleCheckbox(
       ticketsPath(project.path),
       checkboxMatch[2],
-      index
+      index,
     )
 
     if (!success) return json({ error: 'ticket not found' }, 404)
     return json({ ok: true })
   }
 
-  return null // not an API route
+  return null
 }

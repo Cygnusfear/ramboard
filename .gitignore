@@ -1,4 +1,5 @@
 node_modules/
 dist/
+.ramboard.pid
 .DS_Store
 *.log

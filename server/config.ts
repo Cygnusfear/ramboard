@@ -1,0 +1,101 @@
+/**
+ * Persistent config stored in ~/.ramboard/config.json
+ * Source of truth for project list and server settings.
+ */
+import { join } from 'path'
+import { homedir } from 'os'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+
+export interface ProjectEntry {
+  id: string
+  name: string
+  path: string
+}
+
+export interface RamboardConfig {
+  projects: ProjectEntry[]
+  server: { port: number }
+}
+
+const CONFIG_DIR = join(homedir(), '.ramboard')
+const CONFIG_PATH = join(CONFIG_DIR, 'config.json')
+
+const DEFAULT_CONFIG: RamboardConfig = {
+  projects: [],
+  server: { port: 4000 },
+}
+
+/** Read config from disk, creating default if missing */
+export function readConfig(): RamboardConfig {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true })
+  }
+  if (!existsSync(CONFIG_PATH)) {
+    writeConfig(DEFAULT_CONFIG)
+    return DEFAULT_CONFIG
+  }
+  try {
+    return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'))
+  } catch {
+    return DEFAULT_CONFIG
+  }
+}
+
+/** Write config to disk */
+export function writeConfig(config: RamboardConfig): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true })
+  }
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + '\n')
+}
+
+/** Derive a short id from a directory name */
+export function dirToId(dirPath: string): string {
+  const name = dirPath.split('/').filter(Boolean).pop() ?? 'unknown'
+  return name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+}
+
+/** Derive a display name from a directory name */
+export function dirToName(dirPath: string): string {
+  const name = dirPath.split('/').filter(Boolean).pop() ?? 'Unknown'
+  // Capitalize first letter, keep rest
+  return name.charAt(0).toUpperCase() + name.slice(1)
+}
+
+/** Add a project if not already present. Returns the project entry. */
+export function addProject(dirPath: string): ProjectEntry {
+  const config = readConfig()
+  const resolved = dirPath.replace(/\/$/, '')
+
+  // Already exists?
+  const existing = config.projects.find(p => p.path === resolved)
+  if (existing) return existing
+
+  const entry: ProjectEntry = {
+    id: dirToId(resolved),
+    name: dirToName(resolved),
+    path: resolved,
+  }
+  config.projects.push(entry)
+  writeConfig(config)
+  return entry
+}
+
+/** Remove a project by id */
+export function removeProject(id: string): boolean {
+  const config = readConfig()
+  const before = config.projects.length
+  config.projects = config.projects.filter(p => p.id !== id)
+  if (config.projects.length < before) {
+    writeConfig(config)
+    return true
+  }
+  return false
+}
+
+/** Check if a directory has .tickets/ */
+export function hasTickets(dirPath: string): boolean {
+  return existsSync(join(dirPath, '.tickets'))
+}
+
+export { CONFIG_PATH }
