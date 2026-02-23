@@ -1,0 +1,42 @@
+export interface TicketSummary {
+  id: string
+  status: 'open' | 'in_progress' | 'closed' | 'cancelled'
+  type: string
+  priority: number
+  tags: string[]
+  deps: string[]
+  links: string[]
+  created: string
+  assignee?: string
+  title: string
+  project: string
+}
+
+export interface Ticket extends TicketSummary {
+  body: string
+}
+
+export interface ProjectSummary {
+  id: string
+  name: string
+  counts: { open: number; in_progress: number; closed: number; cancelled: number }
+  total: number
+}
+
+export type ViewMode = 'list' | 'board'
+export type SortField = 'priority' | 'created' | 'title' | 'status'
+export type SortDir = 'asc' | 'desc'
+
+export const STATUS_ORDER = ['open', 'in_progress', 'closed', 'cancelled'] as const
+export const STATUS_LABELS: Record<string, string> = {
+  open: 'Open',
+  in_progress: 'In Progress',
+  closed: 'Closed',
+  cancelled: 'Cancelled',
+}
+export const PRIORITY_LABELS: Record<number, string> = {
+  0: 'Urgent',
+  1: 'High',
+  2: 'Medium',
+  3: 'Low',
+}
