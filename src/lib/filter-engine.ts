@@ -9,15 +9,17 @@ import type { TicketSummary, SortField, SortDir } from './types'
 export type FilterField = 'status' | 'priority' | 'type' | 'tag' | 'assignee' | 'created' | 'title'
 
 export type FilterOperator =
-  | 'is'          // exact match (single value)
-  | 'is_not'      // not equal
-  | 'any_of'      // value is in list
-  | 'none_of'     // value is not in list
-  | 'contains'    // substring match (text fields)
-  | 'before'      // date < value
-  | 'after'       // date > value
-  | 'between'     // date between [start, end]
-  | 'last_n_days' // created within last N days
+  | 'is'           // exact match (single value)
+  | 'is_not'       // not equal
+  | 'any_of'       // value is in list
+  | 'none_of'      // value is not in list
+  | 'contains'     // substring match (text fields)
+  | 'before'       // date < value
+  | 'after'        // date > value
+  | 'between'      // date between [start, end]
+  | 'last_n_days'  // created within last N days
+  | 'older_than'   // created more than N days ago
+  | 'newer_than'   // created less than N days ago
 
 export interface FilterClause {
   id: string
@@ -37,7 +39,7 @@ export const FIELD_OPERATORS: Record<FilterField, FilterOperator[]> = {
   type:     ['any_of', 'none_of'],
   tag:      ['any_of', 'none_of'],
   assignee: ['is', 'is_not', 'any_of', 'none_of'],
-  created:  ['before', 'after', 'between', 'last_n_days'],
+  created:  ['newer_than', 'older_than', 'last_n_days', 'before', 'after', 'between'],
   title:    ['contains'],
 }
 
@@ -61,16 +63,18 @@ export const OPERATOR_LABELS: Record<FilterOperator, string> = {
   after: 'after',
   between: 'between',
   last_n_days: 'in last',
+  older_than: 'older than',
+  newer_than: 'newer than',
 }
 
 // ── Date presets ──────────────────────────────────────────────
 
 export const DATE_PRESETS = [
-  { label: 'Today', days: 1 },
-  { label: 'Last 7 days', days: 7 },
-  { label: 'Last 30 days', days: 30 },
-  { label: 'Last 90 days', days: 90 },
-  { label: 'Last year', days: 365 },
+  { label: '1 day', days: 1 },
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
+  { label: '1 year', days: 365 },
 ] as const
 
 // ── Evaluation ────────────────────────────────────────────────
@@ -170,10 +174,16 @@ function matchDateField(
       const [start, end] = value as [string, string]
       return date >= new Date(start).getTime() && date <= new Date(end).getTime()
     }
-    case 'last_n_days': {
+    case 'last_n_days':
+    case 'newer_than': {
       if (typeof value !== 'number') return true
       const cutoff = Date.now() - value * 86400000
       return date >= cutoff
+    }
+    case 'older_than': {
+      if (typeof value !== 'number') return true
+      const cutoff = Date.now() - value * 86400000
+      return date < cutoff
     }
     default:
       return true

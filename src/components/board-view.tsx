@@ -4,7 +4,7 @@ import { useViewStore } from '@/stores/view-store'
 import { useProjectStore } from '@/stores/project-store'
 import { BoardColumn } from './board-column'
 import { ColumnEditor } from './column-editor'
-import { applyFiltersAndSort, createFilterId } from '@/lib/filter-engine'
+import { createFilterId } from '@/lib/filter-engine'
 import type { SavedList, SavedView, SortField, SortDir } from '@/lib/types'
 import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/types'
 import {
@@ -179,25 +179,6 @@ export function BoardView() {
   const columns = activeView?.columns ?? []
   const sortOverride = activeView?.boardSort
 
-  // Leftmost-wins exclusion sets
-  const exclusionSets = useMemo(() => {
-    const sets: Set<string>[] = []
-    const claimed = new Set<string>()
-
-    for (const col of columns) {
-      sets.push(new Set(claimed))
-      const matched = applyFiltersAndSort({
-        tickets: tickets.filter(t => !claimed.has(t.id)),
-        filters: col.filters,
-        sortField: sortOverride?.field ?? col.sortField,
-        sortDir: sortOverride?.dir ?? col.sortDir,
-      })
-      for (const t of matched) claimed.add(t.id)
-    }
-
-    return sets
-  }, [tickets, columns, sortOverride])
-
   // Persist column changes back to active view
   const persistColumns = useCallback(
     async (newColumns: SavedList[]) => {
@@ -292,7 +273,6 @@ export function BoardView() {
               <BoardColumn
                 list={col}
                 allTickets={tickets}
-                excludeIds={exclusionSets[i] ?? new Set()}
                 sortOverride={sortOverride}
               />
             </ColumnEditor>

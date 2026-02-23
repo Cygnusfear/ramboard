@@ -41,22 +41,20 @@ const CARD_GAP = 8
 interface BoardColumnProps {
   list: SavedList
   allTickets: TicketSummary[]
-  excludeIds: Set<string>
   sortOverride?: { field: SavedList['sortField']; dir: SavedList['sortDir'] }
 }
 
-export function BoardColumn({ list, allTickets, excludeIds, sortOverride }: BoardColumnProps) {
+export function BoardColumn({ list, allTickets, sortOverride }: BoardColumnProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const tickets = useMemo(() => {
-    const available = allTickets.filter(t => !excludeIds.has(t.id))
     return applyFiltersAndSort({
-      tickets: available,
+      tickets: allTickets,
       filters: list.filters,
       sortField: sortOverride?.field ?? list.sortField,
       sortDir: sortOverride?.dir ?? list.sortDir,
     })
-  }, [allTickets, list, excludeIds, sortOverride])
+  }, [allTickets, list, sortOverride])
 
   const virtualizer = useVirtualizer({
     count: tickets.length,

@@ -174,7 +174,7 @@ function DateValueEditor({
   clause: FilterClause
   onUpdate: (patch: Partial<Pick<FilterClause, 'operator' | 'value'>>) => void
 }) {
-  if (clause.operator === 'last_n_days') {
+  if (clause.operator === 'last_n_days' || clause.operator === 'older_than' || clause.operator === 'newer_than') {
     return (
       <div className="flex flex-col gap-1">
         {DATE_PRESETS.map(p => (
