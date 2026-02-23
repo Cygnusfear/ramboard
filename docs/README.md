@@ -1,6 +1,9 @@
 # Ramboard
 
-Multi-project ticket board. Reads `.tickets/` directories from local repos and presents them as a Linear-style kanban + list interface. Read-write. No database, no sync — the filesystem is the source of truth.
+<img width="3676" height="2378" alt="Screenshot 2026-02-23 at 10 47 33" src="https://github.com/user-attachments/assets/89509b3d-6b7f-4c66-9355-d63ceb2939a5" />
+<img width="3676" height="2378" alt="Screenshot 2026-02-23 at 10 47 30" src="https://github.com/user-attachments/assets/571d634e-b70f-4a0a-b70c-acb4b179cb67" />
+
+Multi-project ticket board used with agent `tk` usage. Reads `.tickets/` directories from local repos and presents them as a Linear-style kanban + list interface. Read-write. No database, no sync — the filesystem is the source of truth.
 
 ## Feature Areas
 
