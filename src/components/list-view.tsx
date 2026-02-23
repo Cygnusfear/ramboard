@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from 'react'
+import { useRef, useCallback, useEffect, useState, forwardRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useUIStore } from '@/stores/ui-store'
 import { useProjectStore } from '@/stores/project-store'
@@ -22,8 +22,8 @@ import type { SortField, TicketSummary } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────
 
-/** Row height in px — must match the rendered row */
-const ROW_HEIGHT = 34
+/** Estimated row height — actual height measured dynamically by virtualizer */
+const ROW_HEIGHT_ESTIMATE = 36
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -67,20 +67,10 @@ function SortHeader({ field, label, className }: { field: SortField; label: stri
 
 // ── Single row ────────────────────────────────────────────────
 
-function ListRow({
-  ticket,
-  index,
-  isHighlighted,
-  isSelected,
-  onMouseDown,
-  onMouseEnter,
-  onClick,
-  onStatusClick,
-  onCheckboxClick,
-  style,
-}: {
+const ListRow = forwardRef<HTMLDivElement, {
   ticket: TicketSummary
   index: number
+  virtualIndex: number
   isHighlighted: boolean
   isSelected: boolean
   onMouseDown: (e: React.MouseEvent) => void
@@ -89,15 +79,28 @@ function ListRow({
   onStatusClick: (e: React.MouseEvent) => void
   onCheckboxClick: (e: React.MouseEvent) => void
   style: React.CSSProperties
-}) {
+}>(function ListRow({
+  ticket,
+  index,
+  virtualIndex,
+  isHighlighted,
+  isSelected,
+  onMouseDown,
+  onMouseEnter,
+  onClick,
+  onStatusClick,
+  onCheckboxClick,
+  style,
+}, ref) {
   return (
     <div
-      data-index={index}
+      ref={ref}
+      data-index={virtualIndex}
       onMouseDown={onMouseDown}
       onMouseEnter={onMouseEnter}
       onClick={onClick}
       style={style}
-      className={`group/row absolute left-0 top-0 grid w-full cursor-default grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-3 transition-colors duration-75 ${
+      className={`group/row absolute left-0 top-0 grid w-full cursor-default grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-3 py-1 transition-colors duration-75 ${
         isSelected
           ? 'bg-blue-500/[0.07]'
           : isHighlighted
@@ -151,7 +154,7 @@ function ListRow({
       <span className="text-right text-[11px] text-zinc-600">{timeAgo(ticket.created)}</span>
     </div>
   )
-}
+})
 
 // ── Main list view ────────────────────────────────────────────
 
@@ -168,12 +171,13 @@ export function ListView() {
   const [selection, setSelection] = useState<Set<number>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Virtualizer
+  // Virtualizer with dynamic measurement
   const virtualizer = useVirtualizer({
     count: tickets.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 15, // render extra rows above/below for smooth scrolling + drag
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 15,
+    measureElement: (el) => el.getBoundingClientRect().height,
   })
 
   // Sync selection set to the UI store for bulk action bar
@@ -338,8 +342,10 @@ export function ListView() {
               return (
                 <ListRow
                   key={ticket.id}
+                  ref={virtualizer.measureElement}
                   ticket={ticket}
                   index={idx}
+                  virtualIndex={virtualRow.index}
                   isHighlighted={idx === highlightIndex}
                   isSelected={selection.has(idx)}
                   onMouseDown={(e) => handleRowMouseDown(idx, e)}
@@ -348,7 +354,6 @@ export function ListView() {
                   onStatusClick={(e) => handleStatusClick(e, ticket)}
                   onCheckboxClick={(e) => handleCheckboxClick(e, idx)}
                   style={{
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 />

@@ -12,7 +12,7 @@ export function HeaderBar() {
   const hasFilters = useFilterStore(s => s.filters.length > 0 || s.search.length > 0)
 
   return (
-    <header className="border-b border-zinc-800">
+    <header className="relative z-20 border-b border-zinc-800">
       {/* Top row — view toggle + meta */}
       <div className="flex h-11 items-center gap-3 px-4">
         {/* View toggle */}

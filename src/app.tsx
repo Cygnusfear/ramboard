@@ -92,7 +92,7 @@ export function App() {
     <div className="flex h-[100dvh]">
       <ProjectRail />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col">
         <Switch>
           <Route path="/:projectId/ticket/:ticketId" component={TicketDetailView} />
           <Route path="/:projectId" component={ProjectView} />

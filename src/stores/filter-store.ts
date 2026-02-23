@@ -27,8 +27,13 @@ interface FilterState {
   setSort: (field: SortField) => void
 }
 
+/** Default filter: show only open + in_progress tickets */
+const DEFAULT_FILTERS: FilterSet = [
+  { id: 'default-status', field: 'status', operator: 'any_of', value: ['open', 'in_progress'] },
+]
+
 export const useFilterStore = create<FilterState>((set) => ({
-  filters: [],
+  filters: DEFAULT_FILTERS,
   search: '',
   sortField: 'priority',
   sortDir: 'asc',
