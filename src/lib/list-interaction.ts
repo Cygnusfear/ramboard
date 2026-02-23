@@ -121,6 +121,9 @@ export function createListInteraction(deps: ListInteractionDeps) {
     // Status dot — let click handle it
     if (action === 'status') return
 
+    // Dot menu — handled by Base UI Menu, don't interfere
+    if (action === 'menu') return
+
     // Cmd/Ctrl+click — toggle
     if (mods.meta) {
       const next = new Set(selection)
@@ -163,6 +166,9 @@ export function createListInteraction(deps: ListInteractionDeps) {
 
     // Checkbox — already handled in mousedown
     if (action === 'checkbox') return
+
+    // Dot menu — handled by Base UI Menu
+    if (action === 'menu') return
 
     // Modifier clicks — already handled in mousedown
     if (mods.shift || mods.meta) return

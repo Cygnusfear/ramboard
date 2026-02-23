@@ -10,7 +10,7 @@ import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { TagList } from './tag-pill'
 import { CaretUp, CaretDown, Check } from '@phosphor-icons/react'
-import { TicketContextMenu } from './ticket-context-menu'
+import { TicketContextMenu, DotMenu } from './ticket-context-menu'
 import {
   createListInteraction,
   type ListInteraction,
@@ -62,16 +62,23 @@ const ListRow = memo(function ListRow({
   index,
   isHighlighted,
   isSelected,
+  menuActions,
 }: {
   ticket: TicketSummary
   index: number
   isHighlighted: boolean
   isSelected: boolean
+  menuActions: {
+    onSetStatus: (ids: string[], s: string) => void
+    onSetPriority: (ids: string[], p: number) => void
+    onCopyId: (ids: string[]) => void
+    onOpen: (id: string) => void
+  }
 }) {
   return (
     <div
       data-index={index}
-      className={`list-row group/row grid h-9 w-full cursor-default grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-3 ${
+      className={`list-row group/row grid h-9 w-full cursor-default grid-cols-[20px_28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-2 ${
         isSelected
           ? 'bg-blue-500/[0.07]'
           : isHighlighted
@@ -79,6 +86,11 @@ const ListRow = memo(function ListRow({
             : ''
       }`}
     >
+      {/* ··· dot menu */}
+      <div data-action="menu" className="flex items-center justify-center">
+        <DotMenu ticket={ticket} {...menuActions} />
+      </div>
+
       {/* Checkbox */}
       <div
         data-action="checkbox"
@@ -313,13 +325,36 @@ export function ListView() {
     if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`)
   }
 
+  // Stable ref for menu actions — avoids re-rendering every ListRow on each render
+  const menuActionsRef = useRef({
+    onSetStatus: handleSetStatus,
+    onSetPriority: handleSetPriority,
+    onCopyId: handleCopyId,
+    onOpen: handleOpenTicket,
+  })
+  menuActionsRef.current = {
+    onSetStatus: handleSetStatus,
+    onSetPriority: handleSetPriority,
+    onCopyId: handleCopyId,
+    onOpen: handleOpenTicket,
+  }
+
+  // Stable wrapper that delegates to ref — same identity across renders
+  const [menuActions] = useState(() => ({
+    onSetStatus: (ids: string[], s: string) => menuActionsRef.current.onSetStatus(ids, s),
+    onSetPriority: (ids: string[], p: number) => menuActionsRef.current.onSetPriority(ids, p),
+    onCopyId: (ids: string[]) => menuActionsRef.current.onCopyId(ids),
+    onOpen: (id: string) => menuActionsRef.current.onOpen(id),
+  }))
+
   const virtualItems = virtualizer.getVirtualItems()
   const { selection } = viewState
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden select-none">
       {/* Column headers */}
-      <div className="grid grid-cols-[28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800 bg-zinc-950 px-3 py-1.5">
+      <div className="grid grid-cols-[20px_28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800 bg-zinc-950 px-2 py-1.5">
+        <div />
         <div />
         <SortHeader field="title" label="Title" />
         <SortHeader field="priority" label="Pri" className="justify-center" />
@@ -380,6 +415,7 @@ export function ListView() {
                       index={vrow.index}
                       isHighlighted={vrow.index === highlightIndex}
                       isSelected={selection.has(ticket.id)}
+                      menuActions={menuActions}
                     />
                   </div>
                 )
