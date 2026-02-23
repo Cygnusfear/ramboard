@@ -18,7 +18,7 @@ function BoardCard({ ticket }: { ticket: TicketSummary }) {
   return (
     <div
       onClick={() => activeProjectId && navigate(`/${activeProjectId}/ticket/${ticket.id}`)}
-      className="flex h-[100px] cursor-pointer flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 transition-colors hover:border-zinc-700 hover:bg-zinc-800/80"
+      className="flex h-[120px] cursor-pointer flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 transition-colors hover:border-zinc-700 hover:bg-zinc-800/80"
     >
       <div className="mb-1.5 flex items-center justify-between">
         <span className="font-mono text-[10px] text-zinc-500">{ticket.id}</span>
@@ -35,7 +35,7 @@ function BoardCard({ ticket }: { ticket: TicketSummary }) {
 
 // ── Column ────────────────────────────────────────────────────
 
-const CARD_HEIGHT = 100 // enforced by h-[100px] on BoardCard
+const CARD_HEIGHT = 120 // enforced by h-[120px] on BoardCard
 const CARD_GAP = 8     // pb-2 on virtual item wrapper
 
 interface BoardColumnProps {
