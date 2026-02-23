@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { useFilterStore } from '@/stores/filter-store'
 import { useViewStore } from '@/stores/view-store'
@@ -5,23 +6,82 @@ import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { FilterBar } from './filter-bar'
-import { List, Kanban, FloppyDisk, CaretDown } from '@phosphor-icons/react'
+import { List, Kanban, FloppyDisk, CaretDown, Plus, Trash, Check } from '@phosphor-icons/react'
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { Popover } from '@base-ui/react/popover'
+import { Dialog } from '@base-ui/react/dialog'
+
+// ── Save-as dialog ────────────────────────────────────────────
+
+function SaveAsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [name, setName] = useState('')
+  const { saveView } = useViewStore()
+  const { activeProjectId } = useProjectStore()
+  const { filters, sortField, sortDir } = useFilterStore()
+
+  const handleSave = async () => {
+    if (!activeProjectId || !name.trim()) return
+    await saveView(activeProjectId, {
+      name: name.trim(),
+      mode: 'list',
+      list: { name: name.trim(), filters, sortField, sortDir },
+    })
+    setName('')
+    onClose()
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={o => !o && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-sm" />
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl shadow-zinc-950/80">
+          <Dialog.Title className="mb-3 text-sm font-medium text-zinc-200">
+            Save as new view
+          </Dialog.Title>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSave()}
+            placeholder="View name..."
+            autoFocus
+            className="mb-4 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-md px-3 py-1.5 text-xs text-zinc-400 hover:bg-zinc-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!name.trim()}
+              className="rounded-md bg-blue-500/15 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/25 disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+// ── Header ────────────────────────────────────────────────────
 
 export function HeaderBar() {
   const { setShowCommandPalette } = useUIStore()
-  const { views, activeViewId, setActiveView, dirty, saveView, markClean } = useViewStore()
+  const { views, activeViewId, setActiveView, dirty, saveView, deleteView } = useViewStore()
   const { activeProjectId } = useProjectStore()
   const filtered = useFilteredTickets()
   const total = useTicketStore(s => s.tickets.length)
   const hasFilters = useFilterStore(s => s.filters.length > 0 || s.search.length > 0)
+  const [showSaveAs, setShowSaveAs] = useState(false)
 
   const activeView = views.find(v => v.id === activeViewId)
   const viewMode = activeView?.mode ?? 'list'
 
-  // Toggle between first list view and first board view
   const handleModeToggle = (values: string[]) => {
     if (values.length === 0) return
     const targetMode = values[0] as 'list' | 'board'
@@ -30,16 +90,21 @@ export function HeaderBar() {
     if (target) setActiveView(target.id)
   }
 
-  // Save current filters back to active view
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!activeProjectId || !activeView) return
     const { filters, sortField, sortDir } = useFilterStore.getState()
-    const updated = {
+    await saveView(activeProjectId, {
       ...activeView,
-      list: activeView.mode === 'list' ? { ...activeView.list!, filters, sortField, sortDir } : activeView.list,
-    }
-    await saveView(activeProjectId, updated)
-  }
+      list: activeView.mode === 'list'
+        ? { ...activeView.list!, filters, sortField, sortDir }
+        : activeView.list,
+    })
+  }, [activeProjectId, activeView, saveView])
+
+  const handleDelete = useCallback(async (viewId: string) => {
+    if (!activeProjectId) return
+    await deleteView(activeProjectId, viewId)
+  }, [activeProjectId, deleteView])
 
   return (
     <header className="relative z-20 border-b border-zinc-800">
@@ -69,26 +134,49 @@ export function HeaderBar() {
         {/* View picker */}
         <Popover.Root>
           <Popover.Trigger className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200">
-            <span className="max-w-[120px] truncate">{activeView?.name ?? 'Default'}</span>
+            <span className="max-w-[140px] truncate">{activeView?.name ?? 'Default'}</span>
             {dirty && <span className="size-1.5 rounded-full bg-blue-500" />}
             <CaretDown size={10} />
           </Popover.Trigger>
           <Popover.Portal>
             <Popover.Positioner sideOffset={8} className="z-50">
-              <Popover.Popup className="min-w-[200px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80">
+              <Popover.Popup className="min-w-[220px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80">
                 {views.map(v => (
-                  <button
+                  <div
                     key={v.id}
-                    onClick={() => setActiveView(v.id)}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-zinc-800 ${
-                      v.id === activeViewId ? 'text-zinc-100' : 'text-zinc-400'
-                    }`}
+                    className="group flex items-center"
                   >
-                    {v.mode === 'list' ? <List size={12} /> : <Kanban size={12} />}
-                    {v.name}
-                    {v.id === activeViewId && <span className="ml-auto text-blue-400">●</span>}
-                  </button>
+                    <button
+                      onClick={() => setActiveView(v.id)}
+                      className={`flex flex-1 items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-zinc-800 ${
+                        v.id === activeViewId ? 'text-zinc-100' : 'text-zinc-400'
+                      }`}
+                    >
+                      {v.mode === 'list' ? <List size={12} /> : <Kanban size={12} />}
+                      {v.name}
+                      {v.id === activeViewId && <Check size={12} className="ml-auto text-blue-400" />}
+                    </button>
+                    {/* Delete — hidden on default views */}
+                    {v.id !== 'default' && v.id !== 'status-board' && (
+                      <button
+                        onClick={() => handleDelete(v.id)}
+                        className="mr-2 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                      >
+                        <Trash size={12} />
+                      </button>
+                    )}
+                  </div>
                 ))}
+
+                {/* Divider + save as new */}
+                <div className="my-1 border-t border-zinc-800" />
+                <button
+                  onClick={() => setShowSaveAs(true)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                >
+                  <Plus size={12} />
+                  Save as new view
+                </button>
               </Popover.Popup>
             </Popover.Positioner>
           </Popover.Portal>
@@ -121,6 +209,9 @@ export function HeaderBar() {
 
       {/* Filter bar (list mode only) */}
       {viewMode === 'list' && <FilterBar />}
+
+      {/* Save-as dialog */}
+      <SaveAsDialog open={showSaveAs} onClose={() => setShowSaveAs(false)} />
     </header>
   )
 }

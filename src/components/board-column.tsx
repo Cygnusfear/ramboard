@@ -7,6 +7,7 @@ import { StatusDot } from './status-dot'
 import { TagList } from './tag-pill'
 import { applyFiltersAndSort } from '@/lib/filter-engine'
 import type { SavedList, TicketSummary } from '@/lib/types'
+import { Pencil } from '@phosphor-icons/react'
 
 // ── Card ──────────────────────────────────────────────────────
 
@@ -34,15 +35,13 @@ function BoardCard({ ticket }: { ticket: TicketSummary }) {
 
 // ── Column ────────────────────────────────────────────────────
 
-const CARD_HEIGHT = 108 // estimated card height for virtualizer
+const CARD_HEIGHT = 108
 const CARD_GAP = 8
 
 interface BoardColumnProps {
   list: SavedList
   allTickets: TicketSummary[]
-  /** Ticket IDs already claimed by columns to the left */
   excludeIds: Set<string>
-  /** Board-level sort override */
   sortOverride?: { field: SavedList['sortField']; dir: SavedList['sortDir'] }
 }
 
@@ -50,7 +49,6 @@ export function BoardColumn({ list, allTickets, excludeIds, sortOverride }: Boar
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const tickets = useMemo(() => {
-    // Filter using the pure engine, then exclude already-claimed IDs
     const available = allTickets.filter(t => !excludeIds.has(t.id))
     return applyFiltersAndSort({
       tickets: available,
@@ -68,13 +66,14 @@ export function BoardColumn({ list, allTickets, excludeIds, sortOverride }: Boar
   })
 
   return (
-    <div className="flex w-72 shrink-0 flex-col">
-      {/* Column header */}
-      <div className="mb-2 flex items-center gap-2 px-1">
+    <div className="flex flex-1 flex-col">
+      {/* Column header — clickable for editing (ColumnEditor wraps this) */}
+      <div className="group mb-2 flex cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-zinc-800/50">
         <span className="text-xs font-medium text-zinc-300">{list.name}</span>
         <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500">
           {tickets.length}
         </span>
+        <Pencil size={10} className="ml-auto text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
 
       {/* Scrollable card list */}
