@@ -117,15 +117,18 @@ function matchSetField(
   operator: FilterOperator,
   value: FilterClause['value'],
 ): boolean {
+  // Coerce to string for comparison — filter values from UI are always strings,
+  // but field values like priority are numbers in TicketSummary
+  const fv = String(fieldValue)
   switch (operator) {
     case 'is':
-      return fieldValue === value
+      return fv === String(value)
     case 'is_not':
-      return fieldValue !== value
+      return fv !== String(value)
     case 'any_of':
-      return Array.isArray(value) && (value as (string | number)[]).includes(fieldValue)
+      return Array.isArray(value) && value.map(String).includes(fv)
     case 'none_of':
-      return Array.isArray(value) && !(value as (string | number)[]).includes(fieldValue)
+      return Array.isArray(value) && !value.map(String).includes(fv)
     default:
       return true
   }
