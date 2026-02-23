@@ -59,7 +59,7 @@ export function TicketContextMenu({
 
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger render={<div />}>
+      <ContextMenu.Trigger render={<div className="flex flex-1 flex-col overflow-hidden" />}>
         {children}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
