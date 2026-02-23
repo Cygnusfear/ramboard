@@ -1,7 +1,7 @@
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import {
-  Circle, CircleHalf, CheckCircle, XCircle,
+  Circle, CircleHalf, CheckCircle,
   ArrowUp, ArrowDown, Minus, ArrowFatDown,
   Copy, ArrowSquareOut, CaretRight,
   CircleDashed, ChartBar, Tag, DotsThree,
@@ -31,7 +31,6 @@ const statusOptions = [
   { value: 'open', label: 'Open', icon: <Circle size={14} weight="bold" className="text-emerald-400" />, key: '1' },
   { value: 'in_progress', label: 'In Progress', icon: <CircleHalf size={14} weight="bold" className="text-amber-400" />, key: '2' },
   { value: 'closed', label: 'Closed', icon: <CheckCircle size={14} weight="bold" className="text-zinc-400" />, key: '3' },
-  { value: 'cancelled', label: 'Cancelled', icon: <XCircle size={14} weight="bold" className="text-zinc-600" />, key: '4' },
 ]
 
 const priorityOptions = [

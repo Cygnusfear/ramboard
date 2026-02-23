@@ -28,7 +28,6 @@ const STATUS_CYCLE: Record<string, string> = {
   open: 'in_progress',
   in_progress: 'closed',
   closed: 'open',
-  cancelled: 'open',
 }
 
 // ── Factory ───────────────────────────────────────────────────
