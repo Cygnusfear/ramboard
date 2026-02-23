@@ -1,6 +1,8 @@
-import { useTicketStore } from '@/stores/ticket-store'
 import { useUIStore } from '@/stores/ui-store'
 import { useProjectStore } from '@/stores/project-store'
+import { useFilterStore } from '@/stores/filter-store'
+import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
+import { useLocation } from 'wouter'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { TagList } from './tag-pill'
@@ -23,7 +25,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function SortHeader({ field, label }: { field: SortField; label: string }) {
-  const { sortField, sortDir, setSort } = useTicketStore()
+  const { sortField, sortDir, setSort } = useFilterStore()
   const active = sortField === field
 
   return (
@@ -40,15 +42,15 @@ function SortHeader({ field, label }: { field: SortField; label: string }) {
 }
 
 export function ListView() {
-  const tickets = useTicketStore(s => s.filteredTickets())
+  const tickets = useFilteredTickets()
   const { highlightIndex, selectedIds, toggleSelection } = useUIStore()
   const { activeProjectId } = useProjectStore()
-  const { fetchTicketDetail } = useTicketStore()
   const { setHighlightIndex } = useUIStore()
+  const [, navigate] = useLocation()
 
   const handleRowClick = (ticketId: string) => {
     if (activeProjectId) {
-      fetchTicketDetail(activeProjectId, ticketId)
+      navigate(`/${activeProjectId}/ticket/${ticketId}`)
     }
   }
 

@@ -1,11 +1,24 @@
 import { useEffect, useRef } from 'react'
+import { useLocation } from 'wouter'
 import { useUIStore } from '@/stores/ui-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
+import { useFilterStore } from '@/stores/filter-store'
+import { applyFiltersAndSort } from '@/lib/filter-engine'
+
+/** Get current filtered tickets imperatively (outside React render) */
+function getVisibleTickets() {
+  const { filters, search, sortField, sortDir } = useFilterStore.getState()
+  return applyFiltersAndSort({
+    tickets: useTicketStore.getState().tickets,
+    filters, search, sortField, sortDir,
+  })
+}
 
 export function useKeyboard() {
   const gPending = useRef(false)
-  const gTimeout = useRef<ReturnType<typeof setTimeout>>()
+  const gTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [, navigate] = useLocation()
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -22,7 +35,7 @@ export function useKeyboard() {
       if (isInput) return
 
       const ui = useUIStore.getState()
-      const tickets = useTicketStore.getState().filteredTickets()
+      const tickets = getVisibleTickets()
       const projects = useProjectStore.getState()
       const ticketStore = useTicketStore.getState()
 
@@ -30,7 +43,7 @@ export function useKeyboard() {
       if (e.key >= '1' && e.key <= '9') {
         const idx = parseInt(e.key) - 1
         if (idx < projects.projects.length) {
-          projects.setActiveProject(projects.projects[idx].id)
+          navigate(`/${projects.projects[idx].id}`)
         }
         return
       }
@@ -75,23 +88,23 @@ export function useKeyboard() {
         case 'H':
           e.preventDefault()
           const pIdx = projects.projects.findIndex(p => p.id === projects.activeProjectId)
-          if (pIdx > 0) projects.setActiveProject(projects.projects[pIdx - 1].id)
+          if (pIdx > 0) navigate(`/${projects.projects[pIdx - 1].id}`)
           break
         case 'L':
           e.preventDefault()
           const nIdx = projects.projects.findIndex(p => p.id === projects.activeProjectId)
-          if (nIdx < projects.projects.length - 1) projects.setActiveProject(projects.projects[nIdx + 1].id)
+          if (nIdx < projects.projects.length - 1) navigate(`/${projects.projects[nIdx + 1].id}`)
           break
         case 'Enter':
           e.preventDefault()
           if (tickets[ui.highlightIndex] && projects.activeProjectId) {
-            ticketStore.fetchTicketDetail(projects.activeProjectId, tickets[ui.highlightIndex].id)
+            navigate(`/${projects.activeProjectId}/ticket/${tickets[ui.highlightIndex].id}`)
           }
           break
         case 'Escape':
           e.preventDefault()
-          if (ticketStore.activeTicket) {
-            ticketStore.clearActiveTicket()
+          if (ticketStore.activeTicket && projects.activeProjectId) {
+            navigate(`/${projects.activeProjectId}`)
           } else if (ui.selectedIds.size > 0) {
             ui.clearSelection()
           } else if (ui.showCommandPalette) {
@@ -143,5 +156,5 @@ export function useKeyboard() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [navigate])
 }

@@ -1,5 +1,6 @@
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
+import { useLocation } from 'wouter'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { TagPill } from './tag-pill'
@@ -8,10 +9,15 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 export function TicketDetail() {
-  const { activeTicket, clearActiveTicket, updateTicketStatus } = useTicketStore()
+  const { activeTicket, updateTicketStatus } = useTicketStore()
   const { activeProjectId } = useProjectStore()
+  const [, navigate] = useLocation()
 
   if (!activeTicket) return null
+
+  const goBack = () => {
+    if (activeProjectId) navigate(`/${activeProjectId}`)
+  }
 
   const handleStatusToggle = () => {
     if (!activeProjectId) return
@@ -19,7 +25,7 @@ export function TicketDetail() {
                       activeTicket.status === 'open' ? 'in_progress' :
                       activeTicket.status === 'in_progress' ? 'closed' : 'open'
     updateTicketStatus(activeProjectId, activeTicket.id, newStatus)
-    clearActiveTicket()
+    goBack()
   }
 
   return (
@@ -27,7 +33,7 @@ export function TicketDetail() {
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
         <button
-          onClick={clearActiveTicket}
+          onClick={goBack}
           className="flex items-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
         >
           <ArrowLeft size={16} />

@@ -1,6 +1,7 @@
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
-import { useUIStore } from '@/stores/ui-store'
+import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
+import { useLocation } from 'wouter'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { TagList } from './tag-pill'
@@ -19,11 +20,11 @@ import { useState } from 'react'
 import type { TicketSummary } from '@/lib/types'
 
 function BoardCard({ ticket, isDragging }: { ticket: TicketSummary; isDragging?: boolean }) {
-  const { fetchTicketDetail } = useTicketStore()
   const { activeProjectId } = useProjectStore()
+  const [, navigate] = useLocation()
 
   const handleClick = () => {
-    if (activeProjectId) fetchTicketDetail(activeProjectId, ticket.id)
+    if (activeProjectId) navigate(`/${activeProjectId}/ticket/${ticket.id}`)
   }
 
   return (
@@ -107,7 +108,7 @@ function BoardColumn({ status, tickets }: { status: string; tickets: TicketSumma
 }
 
 export function BoardView() {
-  const tickets = useTicketStore(s => s.filteredTickets())
+  const tickets = useFilteredTickets()
   const { updateTicketStatus } = useTicketStore()
   const { activeProjectId } = useProjectStore()
   const [activeCard, setActiveCard] = useState<TicketSummary | null>(null)
