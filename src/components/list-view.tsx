@@ -153,6 +153,16 @@ export function ListView() {
   const isScrolling = useRef(false)
   const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  // Drag threshold — defer selection until mouse moves 4+ px from mousedown origin
+  const DRAG_THRESHOLD = 4
+  const pendingDrag = useRef<{
+    index: number
+    x: number
+    y: number
+    shift: boolean
+    meta: boolean
+  } | null>(null)
+
   // Virtualizer — fixed row height, no measurement, pure math
   const virtualizer = useVirtualizer({
     count: tickets.length,
@@ -192,6 +202,14 @@ export function ListView() {
   }, [])
 
   // Single event handler on the container — no per-row handlers
+  //
+  // Click behavior (like Linear):
+  //   Plain click        → navigate to ticket
+  //   Cmd/Ctrl+click     → toggle selection (immediate)
+  //   Shift+click        → range select (immediate)
+  //   Click + drag (4px) → start drag-select
+  //   Checkbox click     → toggle selection (immediate)
+  //   Status click       → cycle status
   const handleContainerEvent = useCallback((e: React.MouseEvent) => {
     const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
     if (!row) return
@@ -207,9 +225,18 @@ export function ListView() {
         commitSelection(dragStart(dsRef.current, idx, { meta: true }))
         return
       }
-      if (action?.getAttribute('data-action') === 'status') return // let click handle it
+      if (action?.getAttribute('data-action') === 'status') return
+
+      // Modifier clicks are immediate (no drag threshold)
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        e.preventDefault()
+        commitSelection(dragStart(dsRef.current, idx, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey }))
+        return
+      }
+
+      // Plain click — defer drag until mouse moves past threshold
       e.preventDefault()
-      commitSelection(dragStart(dsRef.current, idx, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey }))
+      pendingDrag.current = { index: idx, x: e.clientX, y: e.clientY, shift: false, meta: false }
     }
 
     if (e.type === 'click') {
@@ -221,14 +248,21 @@ export function ListView() {
         }
         return
       }
-      if (action?.getAttribute('data-action') === 'checkbox') return // handled in mousedown
-      if (dsRef.current.selection.size <= 1 && activeProjectId) {
+      if (action?.getAttribute('data-action') === 'checkbox') return
+
+      // Plain click → navigate ONLY if no selection active and no modifiers
+      if (!dsRef.current.dragging && activeProjectId && selection.size === 0 && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        pendingDrag.current = null
         navigate(`/${activeProjectId}/ticket/${ticket.id}`)
+      }
+      // Click with no modifiers while items are selected → clear selection
+      if (selection.size > 0 && !e.shiftKey && !e.metaKey && !e.ctrlKey && !dsRef.current.dragging) {
+        commitSelection(dragClear())
       }
     }
 
     if (e.type === 'mousemove') {
-      if (!isScrolling.current && !dsRef.current.dragging) {
+      if (!isScrolling.current && !dsRef.current.dragging && !pendingDrag.current) {
         setHighlightIndex(idx)
       }
     }
@@ -237,6 +271,19 @@ export function ListView() {
   // Global mousemove/mouseup during drag
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
+      // Check pending drag threshold
+      const pending = pendingDrag.current
+      if (pending && !dsRef.current.dragging) {
+        const dx = e.clientX - pending.x
+        const dy = e.clientY - pending.y
+        if (Math.abs(dx) + Math.abs(dy) >= DRAG_THRESHOLD) {
+          // Threshold exceeded — activate drag-select
+          commitSelection(dragStart(dsRef.current, pending.index, { shift: pending.shift, meta: pending.meta }))
+          pendingDrag.current = null
+        }
+        return
+      }
+
       if (!dsRef.current.dragging) return
       const container = scrollRef.current
       if (container) {
@@ -255,6 +302,7 @@ export function ListView() {
       }
     }
     function onMouseUp() {
+      pendingDrag.current = null
       if (dsRef.current.dragging) commitSelection(dragEnd(dsRef.current))
     }
     window.addEventListener('mousemove', onMouseMove)
