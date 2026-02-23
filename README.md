@@ -2,8 +2,10 @@
 
 Multi-project ticket board for [tk](https://github.com/wedow/ticket). Reads `.tickets/` directories from local repos. Kanban and list views. Vim bindings. Full markdown. Read-write.
 
-<img width="3676" height="2378" alt="Board view" src="https://github.com/user-attachments/assets/89509b3d-6b7f-4c66-9355-d63ceb2939a5" />
-<img width="3676" height="2378" alt="List view" src="https://github.com/user-attachments/assets/571d634e-b70f-4a0a-b70c-acb4b179cb67" />
+<p>
+  <img width="49%" alt="Board view" src="https://github.com/user-attachments/assets/89509b3d-6b7f-4c66-9355-d63ceb2939a5" />
+  <img width="49%" alt="List view" src="https://github.com/user-attachments/assets/571d634e-b70f-4a0a-b70c-acb4b179cb67" />
+</p>
 
 ## Why
 
