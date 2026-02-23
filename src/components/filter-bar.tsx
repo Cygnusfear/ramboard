@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
+import { Popover } from '@base-ui/react/popover'
+import { Checkbox } from '@base-ui/react/checkbox'
 import { useFilterStore } from '@/stores/filter-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import {
@@ -12,31 +14,20 @@ import {
   uniqueFieldValues,
 } from '@/lib/filter-engine'
 import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/types'
-import { Plus, X, MagnifyingGlass, Funnel, FunnelSimple } from '@phosphor-icons/react'
+import { Plus, X, MagnifyingGlass, Check, FunnelSimple } from '@phosphor-icons/react'
 
 // ── Filter chip (shows one active filter) ─────────────────────
 
 function FilterChip({ clause }: { clause: FilterClause }) {
   const { updateFilter, removeFilter } = useFilterStore()
   const tickets = useTicketStore(s => s.tickets)
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    if (open) document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [open])
 
   const valueLabel = formatValue(clause)
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/50 px-2 py-1 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+    <Popover.Root>
+      <Popover.Trigger
+        className="flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/50 px-2 py-1 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800 data-[popup-open]:border-zinc-600 data-[popup-open]:bg-zinc-800"
       >
         <span className="text-zinc-500">{FIELD_LABELS[clause.field]}</span>
         <span className="text-zinc-600">{OPERATOR_LABELS[clause.operator]}</span>
@@ -46,17 +37,20 @@ function FilterChip({ clause }: { clause: FilterClause }) {
           className="ml-1 text-zinc-500 hover:text-zinc-200"
           onClick={e => { e.stopPropagation(); removeFilter(clause.id) }}
         />
-      </button>
+      </Popover.Trigger>
 
-      {open && (
-        <FilterEditor
-          clause={clause}
-          tickets={tickets}
-          onUpdate={(patch) => updateFilter(clause.id, patch)}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </div>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={8}>
+          <Popover.Popup className="min-w-[240px] origin-[var(--transform-origin)] rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl transition-[transform,opacity] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+            <FilterEditor
+              clause={clause}
+              tickets={tickets}
+              onUpdate={(patch) => updateFilter(clause.id, patch)}
+            />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 
@@ -66,18 +60,16 @@ function FilterEditor({
   clause,
   tickets,
   onUpdate,
-  onClose,
 }: {
   clause: FilterClause
   tickets: import('@/lib/types').TicketSummary[]
   onUpdate: (patch: Partial<Pick<FilterClause, 'operator' | 'value'>>) => void
-  onClose: () => void
 }) {
   const operators = FIELD_OPERATORS[clause.field]
   const options = uniqueFieldValues(tickets, clause.field)
 
   return (
-    <div className="absolute left-0 top-full z-50 mt-1 min-w-[240px] rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+    <div>
       {/* Operator selector */}
       <div className="mb-2 flex gap-1">
         {operators.map(op => (
@@ -148,20 +140,26 @@ function MultiSelectEditor({
         />
       )}
       <div className="max-h-[200px] overflow-auto">
-        {filtered.map(opt => (
-          <label
-            key={opt}
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
-          >
-            <input
-              type="checkbox"
-              checked={selected.includes(opt)}
-              onChange={() => toggle(opt)}
-              className="rounded border-zinc-600"
-            />
-            <span>{labelForOption(clause.field, opt)}</span>
-          </label>
-        ))}
+        {filtered.map(opt => {
+          const checked = selected.includes(opt)
+          return (
+            <label
+              key={opt}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              <Checkbox.Root
+                checked={checked}
+                onCheckedChange={() => toggle(opt)}
+                className="flex size-4 items-center justify-center rounded-sm border border-zinc-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 data-[checked]:border-blue-500 data-[checked]:bg-blue-500"
+              >
+                <Checkbox.Indicator className="flex text-white data-[unchecked]:hidden">
+                  <Check size={10} weight="bold" />
+                </Checkbox.Indicator>
+              </Checkbox.Root>
+              <span>{labelForOption(clause.field, opt)}</span>
+            </label>
+          )
+        })}
       </div>
     </div>
   )
@@ -253,43 +251,34 @@ function TextValueEditor({
 
 function AddFilterButton() {
   const { addFilter } = useFilterStore()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    if (open) document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [open])
 
   const fields: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'title']
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 rounded-md border border-dashed border-zinc-700 px-2 py-1 text-xs text-zinc-500 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+    <Popover.Root>
+      <Popover.Trigger
+        className="flex items-center gap-1 rounded-md border border-dashed border-zinc-700 px-2 py-1 text-xs text-zinc-500 transition-colors hover:border-zinc-500 hover:text-zinc-300 data-[popup-open]:border-zinc-500 data-[popup-open]:text-zinc-300"
       >
         <Plus size={12} />
         Filter
-      </button>
+      </Popover.Trigger>
 
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl">
-          {fields.map(field => (
-            <button
-              key={field}
-              onClick={() => { addFilter(field); setOpen(false) }}
-              className="flex w-full items-center px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
-            >
-              {FIELD_LABELS[field]}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={8}>
+          <Popover.Popup className="min-w-[160px] origin-[var(--transform-origin)] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl transition-[transform,opacity] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+            {fields.map(field => (
+              <Popover.Close
+                key={field}
+                onClick={() => addFilter(field)}
+                className="flex w-full items-center px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
+              >
+                {FIELD_LABELS[field]}
+              </Popover.Close>
+            ))}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 

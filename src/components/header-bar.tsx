@@ -4,6 +4,8 @@ import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
 import { useTicketStore } from '@/stores/ticket-store'
 import { FilterBar } from './filter-bar'
 import { List, Kanban } from '@phosphor-icons/react'
+import { Toggle } from '@base-ui/react/toggle'
+import { ToggleGroup } from '@base-ui/react/toggle-group'
 
 export function HeaderBar() {
   const { viewMode, setViewMode, setShowCommandPalette } = useUIStore()
@@ -16,26 +18,28 @@ export function HeaderBar() {
       {/* Top row — view toggle + meta */}
       <div className="flex h-11 items-center gap-3 px-4">
         {/* View toggle */}
-        <div className="flex rounded-lg border border-zinc-800 p-0.5">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-              viewMode === 'list' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
+        <ToggleGroup
+          value={[viewMode]}
+          onValueChange={(values) => {
+            if (values.length > 0) setViewMode(values[0] as 'list' | 'board')
+          }}
+          className="flex rounded-lg border border-zinc-800 p-0.5"
+        >
+          <Toggle
+            value="list"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-300 data-[pressed]:bg-zinc-800 data-[pressed]:text-zinc-100"
           >
             <List size={14} />
             List
-          </button>
-          <button
-            onClick={() => setViewMode('board')}
-            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-              viewMode === 'board' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
+          </Toggle>
+          <Toggle
+            value="board"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-300 data-[pressed]:bg-zinc-800 data-[pressed]:text-zinc-100"
           >
             <Kanban size={14} />
             Board
-          </button>
-        </div>
+          </Toggle>
+        </ToggleGroup>
 
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs text-zinc-500">
