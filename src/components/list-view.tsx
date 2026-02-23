@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState, memo } from 'react'
+import { useRef, useEffect, useState, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useUIStore } from '@/stores/ui-store'
 import { useProjectStore } from '@/stores/project-store'
@@ -10,20 +10,16 @@ import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { TagList } from './tag-pill'
 import { CaretUp, CaretDown, Check } from '@phosphor-icons/react'
-import {
-  type DragSelectState,
-  createDragSelectState,
-  dragStart,
-  dragMove,
-  dragEnd,
-  dragClear,
-} from '@/lib/drag-select'
 import { TicketContextMenu } from './ticket-context-menu'
+import {
+  createListInteraction,
+  type ListInteraction,
+  type ListViewState,
+} from '@/lib/list-interaction'
 import type { SortField, TicketSummary } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────
 
-/** Fixed row height enforced by CSS — no dynamic measurement needed */
 const ROW_HEIGHT = 36
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -38,13 +34,6 @@ function timeAgo(dateStr: string): string {
   if (days < 30) return `${days}d ago`
   if (days < 365) return `${Math.floor(days / 30)}mo ago`
   return `${Math.floor(days / 365)}y ago`
-}
-
-const STATUS_CYCLE: Record<string, string> = {
-  open: 'in_progress',
-  in_progress: 'closed',
-  closed: 'open',
-  cancelled: 'open',
 }
 
 // ── Sort header ───────────────────────────────────────────────
@@ -66,7 +55,7 @@ function SortHeader({ field, label, className }: { field: SortField; label: stri
   )
 }
 
-// ── Single row — memoized, no transitions during scroll ───────
+// ── Single row — memoized ─────────────────────────────────────
 
 const ListRow = memo(function ListRow({
   ticket,
@@ -135,6 +124,19 @@ const ListRow = memo(function ListRow({
   )
 })
 
+// ── Helpers for extracting row info from DOM events ───────────
+
+function rowIndexFromEvent(e: React.MouseEvent | MouseEvent): number | null {
+  const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
+  if (!row) return null
+  return parseInt(row.dataset.index!, 10)
+}
+
+function actionFromEvent(e: React.MouseEvent | MouseEvent): string | null {
+  const el = (e.target as HTMLElement).closest('[data-action]')
+  return el?.getAttribute('data-action') ?? null
+}
+
 // ── Main list view ────────────────────────────────────────────
 
 export function ListView() {
@@ -144,76 +146,51 @@ export function ListView() {
   const { activeProjectId } = useProjectStore()
   const { updateTicketStatus } = useTicketStore()
   const [, navigate] = useLocation()
-
-  // Drag-select engine works with indices (for range math).
-  // Committed selection is ticket IDs — stable across re-sorts/re-filters.
-  const dsRef = useRef<DragSelectState>(createDragSelectState())
-  const [selection, setSelection] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Track scrolling to suppress mouseEnter highlights
+  // Keep latest deps in refs so the machine never goes stale
+  const ticketsRef = useRef(tickets)
+  ticketsRef.current = tickets
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+  const updateStatusRef = useRef(updateTicketStatus)
+  updateStatusRef.current = updateTicketStatus
+  const activeProjectRef = useRef(activeProjectId)
+  activeProjectRef.current = activeProjectId
+
+  // State machine — created once, reads deps through refs
+  const [viewState, setViewState] = useState<ListViewState>({
+    selection: new Set(),
+    contextTargets: [],
+  })
+
+  const engineRef = useRef<ListInteraction | null>(null)
+  if (!engineRef.current) {
+    engineRef.current = createListInteraction({
+      getTickets: () => ticketsRef.current,
+      navigate: (ticketId) => {
+        const pid = activeProjectRef.current
+        if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`)
+      },
+      cycleStatus: (ticketId, status) => {
+        const pid = activeProjectRef.current
+        if (pid) updateStatusRef.current(pid, ticketId, status)
+      },
+      onChange: setViewState,
+    })
+  }
+  const engine = engineRef.current
+
+  // Sync selection to UI store (for bulk action bar)
+  useEffect(() => {
+    useUIStore.setState({ selectedIds: viewState.selection })
+  }, [viewState.selection])
+
+  // Scroll suppression for highlight
   const isScrolling = useRef(false)
   const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  // Drag threshold — defer selection until mouse moves 4+ px from mousedown origin
-  const DRAG_THRESHOLD = 4
-  const pendingDrag = useRef<{
-    index: number
-    x: number
-    y: number
-    shift: boolean
-    meta: boolean
-  } | null>(null)
-
-  /** Commit drag-select engine state → convert indices to ticket IDs */
-  const commitSelection = useCallback((state: DragSelectState) => {
-    dsRef.current = state
-    const ids = new Set<string>()
-    for (const idx of state.selection) {
-      const t = tickets[idx]
-      if (t) ids.add(t.id)
-    }
-    setSelection(ids)
-  }, [tickets])
-
-  // Context menu — track which tickets the right-click applies to
-  const [contextTargets, setContextTargets] = useState<TicketSummary[]>([])
-
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
-    if (!row) return
-    const idx = parseInt(row.dataset.index!, 10)
-    const ticket = tickets[idx]
-    if (!ticket) return
-
-    // If right-clicked row is already selected, menu applies to all selected
-    if (selection.has(ticket.id)) {
-      setContextTargets(tickets.filter(t => selection.has(t.id)))
-    } else {
-      // Select just this row, menu applies to it alone
-      commitSelection(dragStart(createDragSelectState(), idx, {}))
-      setContextTargets([ticket])
-    }
-  }, [tickets, selection, commitSelection])
-
-  const handleSetStatus = useCallback((ticketIds: string[], status: string) => {
-    if (!activeProjectId) return
-    for (const id of ticketIds) updateTicketStatus(activeProjectId, id, status)
-  }, [activeProjectId, updateTicketStatus])
-
-  const handleSetPriority = useCallback((_ticketIds: string[], _priority: number) => {
-    // TODO: implement priority update API
-  }, [])
-
-  const handleCopyId = useCallback((ticketIds: string[]) => {
-    navigator.clipboard.writeText(ticketIds.join(', '))
-  }, [])
-
-  const handleOpenTicket = useCallback((ticketId: string) => {
-    if (activeProjectId) navigate(`/${activeProjectId}/ticket/${ticketId}`)
-  }, [activeProjectId, navigate])
-
-  // Virtualizer — fixed row height, no measurement, pure math
+  // Virtualizer
   const virtualizer = useVirtualizer({
     count: tickets.length,
     getScrollElement: () => scrollRef.current,
@@ -221,7 +198,7 @@ export function ListView() {
     overscan: 20,
   })
 
-  // Detect scroll to suppress mouseEnter
+  // Detect scroll to suppress hover highlights
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -234,146 +211,110 @@ export function ListView() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Sync selection (already ticket IDs) to UI store for bulk action bar
+  // Container event handlers — thin dispatch to engine
+  function onMouseDown(e: React.MouseEvent) {
+    const idx = rowIndexFromEvent(e)
+    if (idx === null) return
+    const action = actionFromEvent(e)
+    const result = engine.mousedown(idx, e.clientX, e.clientY, {
+      shift: e.shiftKey,
+      meta: e.metaKey || e.ctrlKey,
+    }, action)
+    if (result === 'stop') e.stopPropagation()
+    if (result === 'prevent' || result === 'stop') e.preventDefault()
+  }
+
+  function onClick(e: React.MouseEvent) {
+    const idx = rowIndexFromEvent(e)
+    if (idx === null) return
+    const action = actionFromEvent(e)
+    const result = engine.click(idx, {
+      shift: e.shiftKey,
+      meta: e.metaKey || e.ctrlKey,
+    }, action)
+    if (result === 'stop') e.stopPropagation()
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    if (isScrolling.current) return
+    const idx = rowIndexFromEvent(e)
+    if (idx !== null && engine.canHighlight()) setHighlightIndex(idx)
+  }
+
+  function onContextMenu(e: React.MouseEvent) {
+    const idx = rowIndexFromEvent(e)
+    if (idx !== null) engine.contextmenu(idx)
+  }
+
+  // Global mousemove/mouseup during drag — stable, no deps to go stale
   useEffect(() => {
-    useUIStore.setState({ selectedIds: selection })
-  }, [selection])
-
-  // Single event handler on the container — no per-row handlers
-  //
-  // Click behavior (like Linear):
-  //   Plain click        → navigate to ticket
-  //   Cmd/Ctrl+click     → toggle selection (immediate)
-  //   Shift+click        → range select (immediate)
-  //   Click + drag (4px) → start drag-select
-  //   Checkbox click     → toggle selection (immediate)
-  //   Status click       → cycle status
-  const handleContainerEvent = useCallback((e: React.MouseEvent) => {
-    const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
-    if (!row) return
-    const idx = parseInt(row.dataset.index!, 10)
-    const ticket = tickets[idx]
-    if (!ticket) return
-
-    if (e.type === 'mousedown') {
-      if (e.button !== 0) return
-      const action = (e.target as HTMLElement).closest('[data-action]')
-      if (action?.getAttribute('data-action') === 'checkbox') {
-        e.stopPropagation()
-        commitSelection(dragStart(dsRef.current, idx, { meta: true }))
-        return
-      }
-      if (action?.getAttribute('data-action') === 'status') return
-
-      // Modifier clicks are immediate (no drag threshold)
-      if (e.shiftKey || e.metaKey || e.ctrlKey) {
-        e.preventDefault()
-        commitSelection(dragStart(dsRef.current, idx, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey }))
-        return
-      }
-
-      // Plain click — defer drag until mouse moves past threshold
-      e.preventDefault()
-      pendingDrag.current = { index: idx, x: e.clientX, y: e.clientY, shift: false, meta: false }
-    }
-
-    if (e.type === 'click') {
-      const action = (e.target as HTMLElement).closest('[data-action]')
-      if (action?.getAttribute('data-action') === 'status') {
-        e.stopPropagation()
-        if (activeProjectId) {
-          updateTicketStatus(activeProjectId, ticket.id, STATUS_CYCLE[ticket.status] ?? 'open')
-        }
-        return
-      }
-      if (action?.getAttribute('data-action') === 'checkbox') return
-
-      // Plain click → navigate ONLY if no selection active and no modifiers
-      if (!dsRef.current.dragging && activeProjectId && selection.size === 0 && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-        pendingDrag.current = null
-        navigate(`/${activeProjectId}/ticket/${ticket.id}`)
-      }
-      // Click with no modifiers while items are selected → clear selection
-      if (selection.size > 0 && !e.shiftKey && !e.metaKey && !e.ctrlKey && !dsRef.current.dragging) {
-        dsRef.current = createDragSelectState()
-        setSelection(new Set())
-      }
-    }
-
-    if (e.type === 'mousemove') {
-      if (!isScrolling.current && !dsRef.current.dragging && !pendingDrag.current) {
-        setHighlightIndex(idx)
-      }
-    }
-  }, [tickets, activeProjectId, navigate, updateTicketStatus, commitSelection, setHighlightIndex, selection])
-
-  // Global mousemove/mouseup during drag
-  useEffect(() => {
-    function onMouseMove(e: MouseEvent) {
-      // Check pending drag threshold
-      const pending = pendingDrag.current
-      if (pending && !dsRef.current.dragging) {
-        const dx = e.clientX - pending.x
-        const dy = e.clientY - pending.y
-        if (Math.abs(dx) + Math.abs(dy) >= DRAG_THRESHOLD) {
-          // Threshold exceeded — activate drag-select
-          commitSelection(dragStart(dsRef.current, pending.index, { shift: pending.shift, meta: pending.meta }))
-          pendingDrag.current = null
-        }
-        return
-      }
-
-      if (!dsRef.current.dragging) return
+    function onGlobalMousemove(e: MouseEvent) {
+      // Auto-scroll near edges
       const container = scrollRef.current
-      if (container) {
+      if (container && engine.isDragging()) {
         const rect = container.getBoundingClientRect()
-        const edgeZone = 40
-        const speed = 8
-        if (e.clientY < rect.top + edgeZone) container.scrollTop -= speed
-        else if (e.clientY > rect.bottom - edgeZone) container.scrollTop += speed
+        if (e.clientY < rect.top + 40) container.scrollTop -= 8
+        else if (e.clientY > rect.bottom - 40) container.scrollTop += 8
       }
+
       const el = document.elementFromPoint(e.clientX, e.clientY)
       const row = el?.closest('[data-index]')
-      if (row) {
-        const idx = parseInt(row.getAttribute('data-index')!, 10)
-        const next = dragMove(dsRef.current, idx)
-        if (next !== dsRef.current) commitSelection(next)
-      }
+      const idx = row ? parseInt(row.getAttribute('data-index')!, 10) : null
+      engine.globalMousemove(e.clientX, e.clientY, idx)
     }
-    function onMouseUp() {
-      pendingDrag.current = null
-      if (dsRef.current.dragging) commitSelection(dragEnd(dsRef.current))
-    }
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [commitSelection])
 
-  // Escape + Cmd+A — clear uses setSelection directly to avoid stale index issues
+    function onGlobalMouseup() {
+      engine.globalMouseup()
+    }
+
+    window.addEventListener('mousemove', onGlobalMousemove)
+    window.addEventListener('mouseup', onGlobalMouseup)
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMousemove)
+      window.removeEventListener('mouseup', onGlobalMouseup)
+    }
+  }, [engine])
+
+  // Keyboard: Escape + Cmd+A
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && selection.size > 0) {
-        dsRef.current = createDragSelectState()
-        setSelection(new Set())
-      }
+    function onKeydown(e: KeyboardEvent) {
+      if (e.key === 'Escape') engine.escape()
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !(e.target as HTMLElement).closest('input,textarea,select')) {
         e.preventDefault()
-        setSelection(new Set(tickets.map(t => t.id)))
+        engine.selectAll()
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [selection.size, tickets])
+    window.addEventListener('keydown', onKeydown)
+    return () => window.removeEventListener('keydown', onKeydown)
+  }, [engine])
 
   // Scroll to highlighted row on keyboard nav
   useEffect(() => {
     virtualizer.scrollToIndex(highlightIndex, { align: 'auto' })
   }, [highlightIndex, virtualizer])
 
+  // Context menu action handlers — read from refs, no stale closures
+  function handleSetStatus(ticketIds: string[], status: string) {
+    const pid = activeProjectRef.current
+    if (!pid) return
+    for (const id of ticketIds) updateStatusRef.current(pid, id, status)
+  }
+
+  function handleSetPriority(_ticketIds: string[], _priority: number) {
+    // TODO: implement priority update API
+  }
+
+  function handleCopyId(ticketIds: string[]) {
+    navigator.clipboard.writeText(ticketIds.join(', '))
+  }
+
+  function handleOpenTicket(ticketId: string) {
+    const pid = activeProjectRef.current
+    if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`)
+  }
+
   const virtualItems = virtualizer.getVirtualItems()
+  const { selection } = viewState
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden select-none">
@@ -391,7 +332,7 @@ export function ListView() {
         <div className="flex items-center gap-3 border-b border-blue-500/20 bg-blue-500/[0.05] px-4 py-1">
           <span className="text-xs font-medium text-blue-400">{selection.size} selected</span>
           <button
-            onClick={() => commitSelection(dragClear())}
+            onClick={() => engine.clear()}
             className="text-[11px] text-zinc-500 hover:text-zinc-300"
           >
             Clear
@@ -401,51 +342,51 @@ export function ListView() {
 
       {/* Virtual scroll container — wrapped in context menu */}
       <TicketContextMenu
-        targetTickets={contextTargets}
+        targetTickets={viewState.contextTargets}
         onSetStatus={handleSetStatus}
         onSetPriority={handleSetPriority}
         onCopyId={handleCopyId}
         onOpen={handleOpenTicket}
       >
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-auto"
-        onMouseDown={handleContainerEvent}
-        onClick={handleContainerEvent}
-        onMouseMove={handleContainerEvent}
-        onContextMenu={handleContextMenu}
-      >
-        {tickets.length === 0 ? (
-          <div className="flex h-40 items-center justify-center text-sm text-zinc-600">
-            No tickets match your filters
-          </div>
-        ) : (
-          <div
-            className="relative will-change-transform"
-            style={{ height: virtualizer.getTotalSize() }}
-          >
-            {virtualItems.map((vrow) => {
-              const ticket = tickets[vrow.index]
-              if (!ticket) return null
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-auto"
+          onMouseDown={onMouseDown}
+          onClick={onClick}
+          onMouseMove={onMouseMove}
+          onContextMenu={onContextMenu}
+        >
+          {tickets.length === 0 ? (
+            <div className="flex h-40 items-center justify-center text-sm text-zinc-600">
+              No tickets match your filters
+            </div>
+          ) : (
+            <div
+              className="relative will-change-transform"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
+              {virtualItems.map((vrow) => {
+                const ticket = tickets[vrow.index]
+                if (!ticket) return null
 
-              return (
-                <div
-                  key={ticket.id}
-                  className="absolute left-0 top-0 w-full"
-                  style={{ height: ROW_HEIGHT, transform: `translateY(${vrow.start}px)` }}
-                >
-                  <ListRow
-                    ticket={ticket}
-                    index={vrow.index}
-                    isHighlighted={vrow.index === highlightIndex}
-                    isSelected={selection.has(ticket.id)}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                return (
+                  <div
+                    key={ticket.id}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ height: ROW_HEIGHT, transform: `translateY(${vrow.start}px)` }}
+                  >
+                    <ListRow
+                      ticket={ticket}
+                      index={vrow.index}
+                      isHighlighted={vrow.index === highlightIndex}
+                      isSelected={selection.has(ticket.id)}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </TicketContextMenu>
     </div>
   )
