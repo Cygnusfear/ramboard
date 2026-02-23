@@ -1,11 +1,13 @@
 import { useMemo, useCallback, useState } from 'react'
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
@@ -20,7 +22,7 @@ import { useViewStore } from '@/stores/view-store'
 import { useProjectStore } from '@/stores/project-store'
 import { BoardColumn } from './board-column'
 import { ColumnEditor } from './column-editor'
-import { createFilterId } from '@/lib/filter-engine'
+import { createFilterId, applyFiltersAndSort } from '@/lib/filter-engine'
 import type { SavedList, SavedView, SortField, SortDir } from '@/lib/types'
 import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/types'
 import {
@@ -215,14 +217,13 @@ function SortableColumn({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex w-72 shrink-0 flex-col"
+      className={`flex w-72 shrink-0 flex-col ${isDragging ? 'opacity-0' : ''}`}
     >
       <ColumnEditor
         column={col}
@@ -257,10 +258,16 @@ export function BoardView() {
     [columns.length], // regenerate only when count changes
   )
 
+  const [activeId, setActiveId] = useState<string | null>(null)
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor),
   )
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }, [])
 
   const persistColumns = useCallback(
     async (newColumns: SavedList[]) => {
@@ -272,6 +279,7 @@ export function BoardView() {
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setActiveId(null)
       const { active, over } = event
       if (!over || active.id === over.id) return
 
@@ -361,6 +369,7 @@ export function BoardView() {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
@@ -377,6 +386,26 @@ export function BoardView() {
               />
             ))}
           </SortableContext>
+
+          {/* Floating ghost — follows cursor during drag */}
+          <DragOverlay>
+            {activeId != null && (() => {
+              const idx = columnIds.indexOf(activeId)
+              const col = columns[idx]
+              if (!col) return null
+              return (
+                <div className="w-72 rounded-lg border border-zinc-700 bg-zinc-900/95 p-3 shadow-2xl shadow-zinc-950/60">
+                  <div className="mb-2 flex items-center gap-2">
+                    <DotsSixVertical size={14} className="text-zinc-500" />
+                    <span className="text-xs font-medium text-zinc-200">{col.name}</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    {applyFiltersAndSort({ tickets, filters: col.filters, sortField: col.sortField, sortDir: col.sortDir }).length} tickets
+                  </div>
+                </div>
+              )
+            })()}
+          </DragOverlay>
         </DndContext>
 
         {/* Add column — outside DndContext */}
