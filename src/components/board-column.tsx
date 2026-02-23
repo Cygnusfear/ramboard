@@ -89,8 +89,8 @@ export function BoardColumn({ list, allTickets, sortOverride }: BoardColumnProps
               return (
                 <div
                   key={ticket.id}
-                  className="absolute left-0 top-0 w-full pb-2"
-                  style={{ height: vrow.size, transform: `translateY(${vrow.start}px)` }}
+                  className="absolute left-0 top-0 w-full"
+                  style={{ height: vrow.size, transform: `translateY(${vrow.start}px)`, paddingBottom: CARD_GAP }}
                 >
                   <BoardCard ticket={ticket} />
                 </div>
