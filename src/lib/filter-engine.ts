@@ -75,7 +75,10 @@ export const OPERATOR_LABELS: Record<FilterOperator, string> = {
 // ── Date presets ──────────────────────────────────────────────
 
 export const DATE_PRESETS = [
-  { label: '1 day', days: 1 },
+  { label: '4 hours', days: 4 / 24 },
+  { label: '8 hours', days: 8 / 24 },
+  { label: '12 hours', days: 0.5 },
+  { label: '24 hours', days: 1 },
   { label: '7 days', days: 7 },
   { label: '30 days', days: 30 },
   { label: '90 days', days: 90 },

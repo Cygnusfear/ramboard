@@ -1,4 +1,20 @@
 import { useMemo, useCallback, useState } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useViewStore } from '@/stores/view-store'
 import { useProjectStore } from '@/stores/project-store'
@@ -13,6 +29,7 @@ import {
   SortDescending,
   Lightning,
   Check,
+  DotsSixVertical,
 } from '@phosphor-icons/react'
 import { Popover } from '@base-ui/react/popover'
 
@@ -81,7 +98,6 @@ function BoardToolbar({
 
   return (
     <div className="flex items-center gap-2 border-b border-zinc-800/50 px-4 py-2">
-      {/* Presets — controlled popover */}
       <Popover.Root open={presetsOpen} onOpenChange={setPresetsOpen}>
         <Popover.Trigger className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300">
           <Lightning size={12} />
@@ -104,7 +120,6 @@ function BoardToolbar({
         </Popover.Portal>
       </Popover.Root>
 
-      {/* Board-level sort — popover with field picker + direction toggle + clear */}
       <Popover.Root open={sortOpen} onOpenChange={setSortOpen}>
         <Popover.Trigger
           className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
@@ -169,6 +184,62 @@ const SORT_FIELD_OPTIONS: { value: SortField; label: string }[] = [
   { value: 'title', label: 'Title' },
 ]
 
+// ── Sortable column wrapper ───────────────────────────────────
+
+function SortableColumn({
+  id,
+  col,
+  index,
+  tickets,
+  sortOverride,
+  onUpdate,
+  onDelete,
+}: {
+  id: string
+  col: SavedList
+  index: number
+  tickets: import('@/lib/types').TicketSummary[]
+  sortOverride?: SavedView['boardSort']
+  onUpdate: (index: number, updated: SavedList) => void
+  onDelete: (index: number) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex w-72 shrink-0 flex-col"
+    >
+      <ColumnEditor
+        column={col}
+        onUpdate={updated => onUpdate(index, updated)}
+        onDelete={() => onDelete(index)}
+      >
+        <BoardColumn
+          list={col}
+          allTickets={tickets}
+          sortOverride={sortOverride}
+          dragHandleProps={{ ...attributes, ...listeners }}
+        />
+      </ColumnEditor>
+    </div>
+  )
+}
+
 // ── Main board ────────────────────────────────────────────────
 
 export function BoardView() {
@@ -180,13 +251,37 @@ export function BoardView() {
   const columns = activeView?.columns ?? []
   const sortOverride = activeView?.boardSort
 
-  // Persist column changes back to active view
+  // Stable IDs for sortable — index-based since SavedList has no id
+  const columnIds = useMemo(
+    () => columns.map((_, i) => `col-${i}`),
+    [columns.length], // regenerate only when count changes
+  )
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor),
+  )
+
   const persistColumns = useCallback(
     async (newColumns: SavedList[]) => {
       if (!activeProjectId || !activeView) return
       await saveView(activeProjectId, { ...activeView, columns: newColumns })
     },
     [activeProjectId, activeView, saveView],
+  )
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+
+      const oldIndex = columnIds.indexOf(active.id as string)
+      const newIndex = columnIds.indexOf(over.id as string)
+      if (oldIndex === -1 || newIndex === -1) return
+
+      persistColumns(arrayMove(columns, oldIndex, newIndex))
+    },
+    [columns, columnIds, persistColumns],
   )
 
   const handleColumnUpdate = useCallback(
@@ -237,7 +332,6 @@ export function BoardView() {
     if (!activeProjectId || !activeView) return
     const next: SavedView = { ...activeView }
     if ((field as string) === '__clear__') {
-      // Explicitly clear — send null so server deletes the key
       next.boardSort = null as unknown as undefined
       saveView(activeProjectId, next)
     } else {
@@ -264,23 +358,28 @@ export function BoardView() {
       />
 
       <div className="flex flex-1 gap-4 overflow-x-auto p-4">
-        {columns.map((col, i) => (
-          <div key={`${col.name}-${i}`} className="flex w-72 shrink-0 flex-col">
-            <ColumnEditor
-              column={col}
-              onUpdate={updated => handleColumnUpdate(i, updated)}
-              onDelete={() => handleColumnDelete(i)}
-            >
-              <BoardColumn
-                list={col}
-                allTickets={tickets}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+            {columns.map((col, i) => (
+              <SortableColumn
+                key={columnIds[i]}
+                id={columnIds[i]}
+                col={col}
+                index={i}
+                tickets={tickets}
                 sortOverride={sortOverride}
+                onUpdate={handleColumnUpdate}
+                onDelete={handleColumnDelete}
               />
-            </ColumnEditor>
-          </div>
-        ))}
+            ))}
+          </SortableContext>
+        </DndContext>
 
-        {/* Add column */}
+        {/* Add column — outside DndContext */}
         <button
           onClick={handleAddColumn}
           className="flex h-fit w-72 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-800 py-8 text-xs text-zinc-600 transition-colors hover:border-zinc-700 hover:bg-zinc-900/50 hover:text-zinc-400"
