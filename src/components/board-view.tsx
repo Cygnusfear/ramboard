@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useViewStore } from '@/stores/view-store'
 import { useProjectStore } from '@/stores/project-store'
@@ -12,6 +12,7 @@ import {
   SortAscending,
   SortDescending,
   Lightning,
+  Check,
 } from '@phosphor-icons/react'
 import { Popover } from '@base-ui/react/popover'
 
@@ -67,17 +68,21 @@ function BoardToolbar({
   view,
   onApplyPreset,
   onToggleBoardSort,
+  onSetBoardSortField,
 }: {
   view: SavedView
   onApplyPreset: (preset: PresetDef) => void
   onToggleBoardSort: () => void
+  onSetBoardSortField: (field: SortField) => void
 }) {
+  const [presetsOpen, setPresetsOpen] = useState(false)
+  const [sortOpen, setSortOpen] = useState(false)
   const hasBoardSort = !!view.boardSort
 
   return (
     <div className="flex items-center gap-2 border-b border-zinc-800/50 px-4 py-2">
-      {/* Presets */}
-      <Popover.Root>
+      {/* Presets — controlled popover */}
+      <Popover.Root open={presetsOpen} onOpenChange={setPresetsOpen}>
         <Popover.Trigger className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300">
           <Lightning size={12} />
           Presets
@@ -88,7 +93,7 @@ function BoardToolbar({
               {PRESETS.map(p => (
                 <button
                   key={p.id}
-                  onClick={() => onApplyPreset(p)}
+                  onClick={() => { onApplyPreset(p); setPresetsOpen(false) }}
                   className="flex w-full px-3 py-1.5 text-left text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
                 >
                   {p.label}
@@ -99,18 +104,55 @@ function BoardToolbar({
         </Popover.Portal>
       </Popover.Root>
 
-      {/* Board-level sort toggle */}
-      <button
-        onClick={onToggleBoardSort}
-        className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
-          hasBoardSort
-            ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
-            : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
-        }`}
-      >
-        {view.boardSort?.dir === 'desc' ? <SortDescending size={12} /> : <SortAscending size={12} />}
-        {hasBoardSort ? `Sort: ${view.boardSort!.field}` : 'Board sort'}
-      </button>
+      {/* Board-level sort — popover with field picker + direction toggle + clear */}
+      <Popover.Root open={sortOpen} onOpenChange={setSortOpen}>
+        <Popover.Trigger
+          className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+            hasBoardSort
+              ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
+              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+          }`}
+        >
+          {view.boardSort?.dir === 'desc' ? <SortDescending size={12} /> : <SortAscending size={12} />}
+          {hasBoardSort ? `Sort: ${view.boardSort!.field}` : 'Board sort'}
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner sideOffset={4} className="z-50">
+            <Popover.Popup className="w-[180px] rounded-lg border border-zinc-800 bg-zinc-900 p-2 shadow-xl">
+              <span className="mb-1.5 block text-[11px] font-medium text-zinc-500">Sort all columns by</span>
+              {SORT_FIELD_OPTIONS.map(sf => (
+                <button
+                  key={sf.value}
+                  onClick={() => { onSetBoardSortField(sf.value); setSortOpen(false) }}
+                  className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs transition-colors hover:bg-zinc-800 ${
+                    view.boardSort?.field === sf.value ? 'text-blue-400' : 'text-zinc-400'
+                  }`}
+                >
+                  {sf.label}
+                  {view.boardSort?.field === sf.value && <Check size={10} className="ml-auto" />}
+                </button>
+              ))}
+              <div className="my-1.5 border-t border-zinc-800" />
+              <div className="flex gap-1">
+                <button
+                  onClick={() => { onToggleBoardSort(); setSortOpen(false) }}
+                  className="flex-1 rounded px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                >
+                  {hasBoardSort ? 'Toggle direction' : 'Enable'}
+                </button>
+                {hasBoardSort && (
+                  <button
+                    onClick={() => { onSetBoardSortField('__clear__' as SortField); setSortOpen(false) }}
+                    className="rounded px-2 py-1 text-[11px] text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
 
       <span className="ml-auto text-[11px] text-zinc-600">
         {view.columns?.length ?? 0} columns
@@ -118,6 +160,13 @@ function BoardToolbar({
     </div>
   )
 }
+
+const SORT_FIELD_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'priority', label: 'Priority' },
+  { value: 'created', label: 'Created' },
+  { value: 'status', label: 'Status' },
+  { value: 'title', label: 'Title' },
+]
 
 // ── Main board ────────────────────────────────────────────────
 
@@ -195,16 +244,24 @@ export function BoardView() {
     if (!activeProjectId || !activeView) return
     const next: SavedView = { ...activeView }
     if (next.boardSort) {
-      // Cycle: asc → desc → off
-      if (next.boardSort.dir === 'asc') {
-        next.boardSort = { ...next.boardSort, dir: 'desc' }
-      } else {
-        next.boardSort = undefined
-      }
+      next.boardSort = { ...next.boardSort, dir: next.boardSort.dir === 'asc' ? 'desc' : 'asc' }
     } else {
       next.boardSort = { field: 'priority', dir: 'asc' }
     }
     saveView(activeProjectId, next)
+  }, [activeProjectId, activeView, saveView])
+
+  const handleSetBoardSortField = useCallback((field: SortField) => {
+    if (!activeProjectId || !activeView) return
+    const next: SavedView = { ...activeView }
+    if ((field as string) === '__clear__') {
+      // Explicitly clear — send null so server deletes the key
+      next.boardSort = null as unknown as undefined
+      saveView(activeProjectId, next)
+    } else {
+      next.boardSort = { field, dir: next.boardSort?.dir ?? 'asc' }
+      saveView(activeProjectId, next)
+    }
   }, [activeProjectId, activeView, saveView])
 
   if (!activeView) {
@@ -221,6 +278,7 @@ export function BoardView() {
         view={activeView}
         onApplyPreset={handleApplyPreset}
         onToggleBoardSort={handleToggleBoardSort}
+        onSetBoardSortField={handleSetBoardSortField}
       />
 
       <div className="flex flex-1 gap-4 overflow-x-auto p-4">

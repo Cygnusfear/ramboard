@@ -61,6 +61,10 @@ export function updateView(projectId: string, viewId: string, patch: Partial<Sav
   const idx = views.findIndex(v => v.id === viewId)
   if (idx === -1) return null
   views[idx] = { ...views[idx], ...patch, id: viewId }
+  // Explicitly null fields → delete them (allows clearing optional properties like boardSort)
+  for (const key of Object.keys(views[idx]) as (keyof SavedView)[]) {
+    if (views[idx][key] === null) delete (views[idx] as unknown as Record<string, unknown>)[key]
+  }
   writeViews(projectId, views)
   return views[idx]
 }
