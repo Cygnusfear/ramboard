@@ -81,6 +81,7 @@ export async function handleApi(req: Request): Promise<Response | null> {
     tickets.sort((a, b) => {
       if (sort === 'priority') return (a.priority - b.priority) * dir
       if (sort === 'created') return a.created.localeCompare(b.created) * dir
+      if (sort === 'modified') return a.modified.localeCompare(b.modified) * dir
       if (sort === 'title') return a.title.localeCompare(b.title) * dir
       if (sort === 'status') return a.status.localeCompare(b.status) * dir
       return 0
