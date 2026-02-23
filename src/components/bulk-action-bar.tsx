@@ -43,7 +43,7 @@ export function BulkActionBar() {
           onClick={() => handleBulkStatus('closed')}
           className="rounded-md px-2.5 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
         >
-          Close All
+          Closed
         </button>
 
         <div className="h-4 w-px bg-zinc-700" />

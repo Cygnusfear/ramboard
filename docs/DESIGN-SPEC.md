@@ -13,6 +13,8 @@ Multi-project kanban board that reads `.tickets/` directories. Linear-style UI w
 | Animation | CSS first, `animejs` (v4) fallback | CSS for hover/focus/stagger/transitions. anime.js for spring physics + orchestration |
 | Drag & Drop | `@dnd-kit/core` + `@dnd-kit/sortable` | Best React DnD lib, Linear uses it |
 | Markdown | `react-markdown` + `remark-gfm` | GFM tables, checkboxes, code blocks |
+| UI Primitives | `@base-ui-components/react` | Headless components — all buttons, toggles, popovers, dialogs, context menus, checkboxes, selects. Styled with Tailwind. |
+| Command Palette | `cmdk` | Fuzzy search, keyboard nav, a11y. Wrapped in Base UI Dialog. |
 | Icons | `@phosphor-icons/react` | No emoji. Ever. |
 | Fonts | `Geist` + `Geist Mono` | Clean engineering aesthetic |
 | State | Zustand | Lightweight, no boilerplate |
@@ -40,6 +42,22 @@ Labels:     Geist, text-xs, uppercase, tracking-wider, text-zinc-500
 ```
 
 No serif fonts. No Inter.
+
+## UI Primitives (Base UI)
+
+**All interactive elements use Base UI headless components.** No hand-rolled dropdowns, modals, or toggles. Base UI handles accessibility, focus management, click-outside dismissal, and keyboard navigation. We style everything with Tailwind via `className` and Base UI data attributes (`data-[pressed]`, `data-[highlighted]`, `data-[popup-open]`, `data-[starting-style]`, `data-[ending-style]`).
+
+| Element | Base UI Component | Location |
+|---------|-------------------|----------|
+| View toggle (List/Board) | `ToggleGroup` + `Toggle` | `header-bar.tsx` |
+| Filter dropdowns | `Popover` | `filter-bar.tsx` |
+| Filter checkboxes | `Checkbox` + `Checkbox.Indicator` | `filter-bar.tsx` |
+| Command palette | `cmdk` Command + Base UI `Dialog` | `command-palette.tsx` |
+| Keyboard help | `Dialog` | `keyboard-help.tsx` |
+| Row context menu | `ContextMenu` | `ticket-context-menu.tsx` |
+| Bulk action bar | Plain buttons (status actions only) | `bulk-action-bar.tsx` |
+
+**Pattern for new interactive elements:** Always reach for Base UI first. Import from `@base-ui/react/<component>`. Use the compound component pattern (`Component.Root > Component.Trigger > Component.Portal > Component.Positioner > Component.Popup`). Style with Tailwind on each part. Use `data-[state]` attributes for conditional styling instead of manual className ternaries.
 
 ## Layout Architecture
 

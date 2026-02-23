@@ -18,6 +18,7 @@ import {
   dragEnd,
   dragClear,
 } from '@/lib/drag-select'
+import { TicketContextMenu } from './ticket-context-menu'
 import type { SortField, TicketSummary } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────
@@ -163,6 +164,48 @@ export function ListView() {
     meta: boolean
   } | null>(null)
 
+  const commitSelection = useCallback((state: DragSelectState) => {
+    dsRef.current = state
+    setSelection(new Set(state.selection))
+  }, [])
+
+  // Context menu — track which tickets the right-click applies to
+  const [contextTargets, setContextTargets] = useState<TicketSummary[]>([])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
+    if (!row) return
+    const idx = parseInt(row.dataset.index!, 10)
+    const ticket = tickets[idx]
+    if (!ticket) return
+
+    // If right-clicked row is already selected, menu applies to all selected
+    if (selection.has(idx)) {
+      setContextTargets([...selection].map(i => tickets[i]).filter(Boolean))
+    } else {
+      // Select just this row, menu applies to it alone
+      commitSelection(dragStart(createDragSelectState(), idx, {}))
+      setContextTargets([ticket])
+    }
+  }, [tickets, selection, commitSelection])
+
+  const handleSetStatus = useCallback((ticketIds: string[], status: string) => {
+    if (!activeProjectId) return
+    for (const id of ticketIds) updateTicketStatus(activeProjectId, id, status)
+  }, [activeProjectId, updateTicketStatus])
+
+  const handleSetPriority = useCallback((_ticketIds: string[], _priority: number) => {
+    // TODO: implement priority update API
+  }, [])
+
+  const handleCopyId = useCallback((ticketIds: string[]) => {
+    navigator.clipboard.writeText(ticketIds.join(', '))
+  }, [])
+
+  const handleOpenTicket = useCallback((ticketId: string) => {
+    if (activeProjectId) navigate(`/${activeProjectId}/ticket/${ticketId}`)
+  }, [activeProjectId, navigate])
+
   // Virtualizer — fixed row height, no measurement, pure math
   const virtualizer = useVirtualizer({
     count: tickets.length,
@@ -195,11 +238,6 @@ export function ListView() {
       useUIStore.setState({ selectedIds: ids })
     }
   }, [selection, tickets])
-
-  const commitSelection = useCallback((state: DragSelectState) => {
-    dsRef.current = state
-    setSelection(new Set(state.selection))
-  }, [])
 
   // Single event handler on the container — no per-row handlers
   //
@@ -359,13 +397,21 @@ export function ListView() {
         </div>
       )}
 
-      {/* Virtual scroll container */}
+      {/* Virtual scroll container — wrapped in context menu */}
+      <TicketContextMenu
+        targetTickets={contextTargets}
+        onSetStatus={handleSetStatus}
+        onSetPriority={handleSetPriority}
+        onCopyId={handleCopyId}
+        onOpen={handleOpenTicket}
+      >
       <div
         ref={scrollRef}
         className="flex-1 overflow-auto"
         onMouseDown={handleContainerEvent}
         onClick={handleContainerEvent}
         onMouseMove={handleContainerEvent}
+        onContextMenu={handleContextMenu}
       >
         {tickets.length === 0 ? (
           <div className="flex h-40 items-center justify-center text-sm text-zinc-600">
@@ -398,6 +444,7 @@ export function ListView() {
           </div>
         )}
       </div>
+      </TicketContextMenu>
     </div>
   )
 }

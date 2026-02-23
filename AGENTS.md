@@ -12,6 +12,8 @@ Multi-project ticket board. Reads `.tickets/` from local repos. Linear-style UI.
 - **Icons:** @phosphor-icons/react (no emoji)
 - **Fonts:** Geist + Geist Mono
 - **State:** Zustand
+- **UI Primitives:** `@base-ui-components/react` (headless) — **all** interactive elements (buttons, toggles, selects, popovers, dialogs, context menus, checkboxes). Styled with Tailwind. No hand-rolled dropdowns or modals.
+- **Command Palette:** `cmdk` wrapped in Base UI Dialog
 
 ## Structure
 
@@ -29,6 +31,7 @@ docs/             # Obsidian wiki — specs, plans, playbook
 - No Inter font. No purple. No pure black/white.
 - Dark theme only. Zinc-950 base, Blue-500 accent.
 - Vim bindings active when no input focused.
+- **All interactive UI uses Base UI.** Never hand-roll a dropdown, modal, toggle, or context menu. Import from `@base-ui/react/<component>`, style with Tailwind + `data-[state]` attributes.
 
 ## Docs
 
