@@ -9,6 +9,7 @@ import { Checkbox } from '@base-ui/react/checkbox'
 import {
   type FilterField,
   type FilterOperator,
+  FILTER_FIELDS,
   FIELD_LABELS,
   FIELD_OPERATORS,
   OPERATOR_LABELS,
@@ -242,7 +243,7 @@ function TextValueEditor({
 
 function AddFilterButton({ onAdd }: { onAdd: (field: FilterField) => void }) {
   const [open, setOpen] = useState(false)
-  const fields: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'title']
+  const fields = FILTER_FIELDS
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>

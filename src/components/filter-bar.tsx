@@ -7,6 +7,7 @@ import {
   type FilterField,
   type FilterClause,
   type FilterOperator,
+  FILTER_FIELDS,
   FIELD_LABELS,
   FIELD_OPERATORS,
   OPERATOR_LABELS,
@@ -252,7 +253,7 @@ function TextValueEditor({
 function AddFilterButton() {
   const { addFilter } = useFilterStore()
 
-  const fields: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'modified', 'title']
+  const fields = FILTER_FIELDS
 
   return (
     <Popover.Root>

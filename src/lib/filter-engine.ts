@@ -33,6 +33,9 @@ export type FilterSet = FilterClause[]
 
 // ── Operator definitions per field ────────────────────────────
 
+/** All available filter fields in display order */
+export const FILTER_FIELDS: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'modified', 'title']
+
 export const FIELD_OPERATORS: Record<FilterField, FilterOperator[]> = {
   status:   ['any_of', 'none_of'],
   priority: ['any_of', 'none_of'],
