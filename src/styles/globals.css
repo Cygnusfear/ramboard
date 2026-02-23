@@ -8,6 +8,22 @@ code, .font-mono {
   font-family: 'Geist Mono', ui-monospace, monospace;
 }
 
+/* Row entrance animation — staggered fade+slide */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-row-in {
+  animation: row-in 0.2s ease-out both;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
