@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'fs/promises'
+import { readdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
 import { parse as parseYaml } from 'yaml'
 
@@ -11,6 +11,7 @@ export interface Ticket {
   deps: string[]
   links: string[]
   created: string
+  modified: string
   assignee?: string
   title: string
   body: string
@@ -30,8 +31,9 @@ export async function parseTicketsDir(ticketsPath: string, projectId: string): P
 
   for (const file of mdFiles) {
     try {
-      const content = await readFile(join(ticketsPath, file), 'utf-8')
-      const ticket = parseTicket(content, projectId)
+      const filePath = join(ticketsPath, file)
+      const [content, fileStat] = await Promise.all([readFile(filePath, 'utf-8'), stat(filePath)])
+      const ticket = parseTicket(content, projectId, fileStat.mtime)
       if (ticket) tickets.push(ticket)
     } catch (e) {
       console.warn(`[ticket-parser] skipping ${file}: ${e}`)
@@ -41,7 +43,7 @@ export async function parseTicketsDir(ticketsPath: string, projectId: string): P
   return tickets
 }
 
-function parseTicket(content: string, projectId: string): Ticket | null {
+function parseTicket(content: string, projectId: string, mtime?: Date): Ticket | null {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!match) return null
 
@@ -67,6 +69,7 @@ function parseTicket(content: string, projectId: string): Ticket | null {
     deps: meta.deps || [],
     links: meta.links || [],
     created: meta.created || '',
+    modified: mtime?.toISOString() ?? meta.created ?? '',
     assignee: meta.assignee,
     title,
     body: body.trim(),

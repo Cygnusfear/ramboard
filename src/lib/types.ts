@@ -7,6 +7,7 @@ export interface TicketSummary {
   deps: string[]
   links: string[]
   created: string
+  modified: string
   assignee?: string
   title: string
   project: string
@@ -24,7 +25,7 @@ export interface ProjectSummary {
 }
 
 export type ViewMode = 'list' | 'board'
-export type SortField = 'priority' | 'created' | 'title' | 'status'
+export type SortField = 'priority' | 'created' | 'modified' | 'title' | 'status'
 export type SortDir = 'asc' | 'desc'
 
 export const STATUS_ORDER = ['open', 'in_progress', 'closed', 'cancelled'] as const

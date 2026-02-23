@@ -6,7 +6,7 @@ import type { TicketSummary, SortField, SortDir } from './types'
 
 // ── Filter types ──────────────────────────────────────────────
 
-export type FilterField = 'status' | 'priority' | 'type' | 'tag' | 'assignee' | 'created' | 'title'
+export type FilterField = 'status' | 'priority' | 'type' | 'tag' | 'assignee' | 'created' | 'modified' | 'title'
 
 export type FilterOperator =
   | 'is'           // exact match (single value)
@@ -40,6 +40,7 @@ export const FIELD_OPERATORS: Record<FilterField, FilterOperator[]> = {
   tag:      ['any_of', 'none_of'],
   assignee: ['is', 'is_not', 'any_of', 'none_of'],
   created:  ['newer_than', 'older_than', 'last_n_days', 'before', 'after', 'between'],
+  modified: ['newer_than', 'older_than', 'last_n_days', 'before', 'after', 'between'],
   title:    ['contains'],
 }
 
@@ -50,6 +51,7 @@ export const FIELD_LABELS: Record<FilterField, string> = {
   tag: 'Tag',
   assignee: 'Assignee',
   created: 'Created',
+  modified: 'Modified',
   title: 'Title',
 }
 
@@ -95,6 +97,8 @@ function matchClause(ticket: TicketSummary, clause: FilterClause): boolean {
       return matchSetField(ticket.assignee ?? '', operator, value)
     case 'created':
       return matchDateField(ticket.created, operator, value)
+    case 'modified':
+      return matchDateField(ticket.modified, operator, value)
     case 'title':
       return matchTextField(ticket.title, operator, value)
     default:
@@ -223,6 +227,7 @@ export function applyFiltersAndSort(params: FilterSortParams): TicketSummary[] {
   result = [...result].sort((a, b) => {
     if (sortField === 'priority') return (a.priority - b.priority) * dir
     if (sortField === 'created') return a.created.localeCompare(b.created) * dir
+    if (sortField === 'modified') return a.modified.localeCompare(b.modified) * dir
     if (sortField === 'title') return a.title.localeCompare(b.title) * dir
     if (sortField === 'status') return a.status.localeCompare(b.status) * dir
     return 0

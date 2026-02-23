@@ -34,6 +34,7 @@ import {
 const SORT_FIELDS: { value: SortField; label: string }[] = [
   { value: 'priority', label: 'Priority' },
   { value: 'created', label: 'Created' },
+  { value: 'modified', label: 'Modified' },
   { value: 'status', label: 'Status' },
   { value: 'title', label: 'Title' },
 ]

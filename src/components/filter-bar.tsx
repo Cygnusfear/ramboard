@@ -252,7 +252,7 @@ function TextValueEditor({
 function AddFilterButton() {
   const { addFilter } = useFilterStore()
 
-  const fields: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'title']
+  const fields: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'modified', 'title']
 
   return (
     <Popover.Root>
