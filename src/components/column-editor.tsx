@@ -21,6 +21,7 @@ import type { FilterClause } from '@/lib/filter-engine'
 import type { SavedList, SortField, SortDir } from '@/lib/types'
 import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/types'
 import { useTicketStore } from '@/stores/ticket-store'
+import { getDefaultValue } from '@/stores/filter-store'
 import {
   Plus,
   X,
@@ -293,12 +294,7 @@ export function ColumnEditor({ column, onUpdate, onDelete, children }: ColumnEdi
 
   const addFilter = (field: FilterField) => {
     const op: FilterOperator = FIELD_OPERATORS[field][0]
-    const defaultValue = field === 'created' ? 30
-      : field === 'title' ? ''
-      : field === 'status' ? ['open']
-      : field === 'priority' ? ['2']
-      : []
-    setFilters(prev => [...prev, { id: createFilterId(), field, operator: op, value: defaultValue }])
+    setFilters(prev => [...prev, { id: createFilterId(), field, operator: op, value: getDefaultValue(field, op) }])
   }
 
   const updateFilter = (id: string, patch: Partial<FilterClause>) => {

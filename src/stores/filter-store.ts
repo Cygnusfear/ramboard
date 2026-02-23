@@ -79,7 +79,8 @@ export const useFilterStore = create<FilterState>((set) => ({
   },
 }))
 
-function getDefaultValue(field: FilterField, operator: FilterOperator): FilterClause['value'] {
+/** Default value for a new filter clause — keyed by operator */
+export function getDefaultValue(_field: FilterField, operator: FilterOperator): FilterClause['value'] {
   switch (operator) {
     case 'any_of':
     case 'none_of':
@@ -87,7 +88,9 @@ function getDefaultValue(field: FilterField, operator: FilterOperator): FilterCl
     case 'between':
       return ['', '']
     case 'last_n_days':
-      return 7
+    case 'older_than':
+    case 'newer_than':
+      return 30
     case 'contains':
     case 'is':
     case 'is_not':
