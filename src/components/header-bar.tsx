@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useLocation } from 'wouter'
 import { useUIStore } from '@/stores/ui-store'
 import { useFilterStore } from '@/stores/filter-store'
 import { useViewStore } from '@/stores/view-store'
@@ -14,7 +15,7 @@ import { Dialog } from '@base-ui/react/dialog'
 
 // ── Save-as dialog ────────────────────────────────────────────
 
-function SaveAsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function SaveAsDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (viewId: string) => void }) {
   const [name, setName] = useState('')
   const { saveView } = useViewStore()
   const { activeProjectId } = useProjectStore()
@@ -22,13 +23,14 @@ function SaveAsDialog({ open, onClose }: { open: boolean; onClose: () => void })
 
   const handleSave = async () => {
     if (!activeProjectId || !name.trim()) return
-    await saveView(activeProjectId, {
+    const saved = await saveView(activeProjectId, {
       name: name.trim(),
       mode: 'list',
       list: { name: name.trim(), filters, sortField, sortDir },
     })
     setName('')
     onClose()
+    onCreated(saved.id)
   }
 
   return (
@@ -72,6 +74,7 @@ function SaveAsDialog({ open, onClose }: { open: boolean; onClose: () => void })
 
 export function HeaderBar() {
   const { setShowCommandPalette } = useUIStore()
+  const [, navigate] = useLocation()
   const { views, activeViewId, setActiveView, dirty, saveView, deleteView } = useViewStore()
   const { activeProjectId } = useProjectStore()
   const filtered = useFilteredTickets()
@@ -82,12 +85,17 @@ export function HeaderBar() {
   const activeView = views.find(v => v.id === activeViewId)
   const viewMode = activeView?.mode ?? 'list'
 
+  const switchView = useCallback((viewId: string) => {
+    setActiveView(viewId)
+    if (activeProjectId) navigate(`/${activeProjectId}/view/${viewId}`)
+  }, [setActiveView, activeProjectId, navigate])
+
   const handleModeToggle = (values: string[]) => {
     if (values.length === 0) return
     const targetMode = values[0] as 'list' | 'board'
     if (targetMode === viewMode) return
     const target = views.find(v => v.mode === targetMode)
-    if (target) setActiveView(target.id)
+    if (target) switchView(target.id)
   }
 
   const handleSave = useCallback(async () => {
@@ -147,7 +155,7 @@ export function HeaderBar() {
                     className="group flex items-center"
                   >
                     <button
-                      onClick={() => setActiveView(v.id)}
+                      onClick={() => switchView(v.id)}
                       className={`flex flex-1 items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-zinc-800 ${
                         v.id === activeViewId ? 'text-zinc-100' : 'text-zinc-400'
                       }`}
@@ -211,7 +219,7 @@ export function HeaderBar() {
       {viewMode === 'list' && <FilterBar />}
 
       {/* Save-as dialog */}
-      <SaveAsDialog open={showSaveAs} onClose={() => setShowSaveAs(false)} />
+      <SaveAsDialog open={showSaveAs} onClose={() => setShowSaveAs(false)} onCreated={switchView} />
     </header>
   )
 }
