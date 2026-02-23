@@ -245,7 +245,7 @@ function SortableColumn({
 
 export function BoardView() {
   const tickets = useTicketStore(s => s.tickets)
-  const { views, activeViewId, saveView } = useViewStore()
+  const { views, activeViewId, saveView, updateViewLocal } = useViewStore()
   const { activeProjectId } = useProjectStore()
   const activeView = views.find(v => v.id === activeViewId)
 
@@ -287,9 +287,13 @@ export function BoardView() {
       const newIndex = columnIds.indexOf(over.id as string)
       if (oldIndex === -1 || newIndex === -1) return
 
-      persistColumns(arrayMove(columns, oldIndex, newIndex))
+      const reordered = arrayMove(columns, oldIndex, newIndex)
+      // Optimistic: update store immediately so UI reflects new order on drop
+      if (activeViewId) updateViewLocal(activeViewId, { columns: reordered })
+      // Persist in background
+      persistColumns(reordered)
     },
-    [columns, columnIds, persistColumns],
+    [columns, columnIds, persistColumns, activeViewId, updateViewLocal],
   )
 
   const handleColumnUpdate = useCallback(

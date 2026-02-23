@@ -10,6 +10,7 @@ interface ViewState {
   fetchViews: (projectId: string) => Promise<void>
   saveView: (projectId: string, view: Omit<SavedView, 'id'> & { id?: string }) => Promise<SavedView>
   deleteView: (projectId: string, viewId: string) => Promise<void>
+  updateViewLocal: (viewId: string, patch: Partial<SavedView>) => void
   setActiveView: (viewId: string) => void
   markDirty: () => void
   markClean: () => void
@@ -73,6 +74,11 @@ export const useViewStore = create<ViewState>((set, get) => ({
       }
     })
   },
+
+  /** Optimistic local update — applies immediately without server round-trip */
+  updateViewLocal: (viewId, patch) => set(s => ({
+    views: s.views.map(v => v.id === viewId ? { ...v, ...patch } : v),
+  })),
 
   setActiveView: (viewId) => set({ activeViewId: viewId, dirty: false }),
   markDirty: () => set({ dirty: true }),
