@@ -336,10 +336,9 @@ Server writes back to the `.tickets/*.md` file — updates YAML frontmatter dire
 ```typescript
 export default {
   projects: [
-    { id: 'trek',        name: 'Trek',        path: '~/Projects/project-a' },
-    { id: 'bhaktiram',   name: 'Bhaktiram',   path: '~/Projects/project-b' },
-    { id: 'totalrecall', name: 'TotalRecall',  path: '~/Projects/project-c' },
-    { id: 'pi',          name: 'Pi',           path: '~/Projects/project-d' },
+    { id: 'project-a',   name: 'Project A',   path: '~/Projects/project-a' },
+    { id: 'project-b',   name: 'Project B',   path: '~/Projects/project-b' },
+    { id: 'project-c',   name: 'Project C',   path: '~/Projects/project-c' },
   ],
   server: {
     port: 4000,
