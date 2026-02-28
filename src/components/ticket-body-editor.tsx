@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
@@ -8,14 +8,11 @@ import TaskItem from '@tiptap/extension-task-item'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Typography from '@tiptap/extension-typography'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import {
   TextB, TextItalic, TextStrikethrough,
   Code, LinkSimple,
 } from '@phosphor-icons/react'
 import { markdownToHtml, htmlToMarkdown } from '@/lib/markdown'
-import { useLinkifiedMarkdown } from '@/hooks/use-linkified-markdown'
 import { SlashCommandExtension } from './slash-command'
 
 // ── Styles ────────────────────────────────────────────────────
@@ -43,58 +40,22 @@ interface TicketBodyEditorProps {
 }
 
 export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
-  const [editing, setEditing] = useState(false)
-  const markdownComponents = useLinkifiedMarkdown()
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedRef = useRef(body)
 
-  const handleSave = useCallback((html: string) => {
+  const save = useCallback((html: string) => {
     const md = htmlToMarkdown(html)
-    onSave(md)
+    if (md !== lastSavedRef.current) {
+      lastSavedRef.current = md
+      onSave(md)
+    }
   }, [onSave])
 
-  if (!editing) {
-    return (
-      <div
-        className="group/body cursor-text"
-        onClick={() => setEditing(true)}
-      >
-        {body?.trim() ? (
-          <article className={proseClasses}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {body}
-            </ReactMarkdown>
-          </article>
-        ) : (
-          <p className="text-sm text-zinc-500 italic">Click to add description…</p>
-        )}
-        <div className="mt-2 hidden text-xs text-zinc-600 group-hover/body:block">
-          Click to edit
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <TipTapEditor
-      initialMarkdown={body}
-      onSave={handleSave}
-      onClose={() => setEditing(false)}
-    />
-  )
-}
-
-// ── TipTap editor (only mounts when editing) ──────────────────
-
-function TipTapEditor({
-  initialMarkdown,
-  onSave,
-  onClose,
-}: {
-  initialMarkdown: string
-  onSave: (html: string) => void
-  onClose: () => void
-}) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const closingRef = useRef(false)
+  // Debounced auto-save on content change
+  const debouncedSave = useCallback((html: string) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => save(html), 1500)
+  }, [save])
 
   const editor = useEditor({
     extensions: [
@@ -108,78 +69,58 @@ function TipTapEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Link.configure({
-        openOnClick: false,
+        openOnClick: true,
         HTMLAttributes: { class: 'text-blue-400 underline' },
       }),
       Placeholder.configure({
-        placeholder: 'Write a description…',
+        placeholder: 'Add a description…',
       }),
       Typography,
       SlashCommandExtension,
     ],
-    content: markdownToHtml(initialMarkdown),
+    content: markdownToHtml(body),
     editorProps: {
       attributes: {
-        class: `${proseClasses} outline-none min-h-[100px] focus:outline-none`,
+        class: `${proseClasses} outline-none min-h-[2rem] focus:outline-none cursor-text`,
       },
+    },
+    onUpdate: ({ editor }) => {
+      debouncedSave(editor.getHTML())
+    },
+    onBlur: ({ editor }) => {
+      // Flush immediately on blur
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      save(editor.getHTML())
     },
   })
 
-  // Cmd+S to save
+  // Cmd+S to force save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault()
         if (editor) {
-          onSave(editor.getHTML())
-          onClose()
-        }
-      }
-      if (e.key === 'Escape') {
-        if (editor) {
-          onSave(editor.getHTML())
-          onClose()
+          if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+          save(editor.getHTML())
         }
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [editor, onSave, onClose])
+  }, [editor, save])
 
-  // Click outside to save & close
+  // Cleanup timer on unmount
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (closingRef.current) return
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        closingRef.current = true
-        if (editor) {
-          onSave(editor.getHTML())
-          onClose()
-        }
-      }
-    }
-    // Delay to avoid catching the click that opened editor
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside)
-    }, 100)
     return () => {
-      clearTimeout(timer)
-      document.removeEventListener('mousedown', handleClickOutside)
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [editor, onSave, onClose])
-
-  // Focus editor on mount
-  useEffect(() => {
-    if (editor) {
-      requestAnimationFrame(() => editor.commands.focus('end'))
-    }
-  }, [editor])
+  }, [])
 
   if (!editor) return null
 
   return (
-    <div ref={wrapperRef} className="rounded-lg border border-zinc-700/50 bg-zinc-900/50 p-4">
-      {/* Floating toolbar */}
+    <>
+      {/* Floating toolbar — only shows on text selection */}
       <BubbleMenu
         editor={editor}
         className="flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-800 p-1 shadow-xl shadow-zinc-950/80"
@@ -230,32 +171,8 @@ function TipTapEditor({
         </button>
       </BubbleMenu>
 
+      {/* Editor content — always visible, always editable, no wrapper chrome */}
       <EditorContent editor={editor} />
-
-      <div className="mt-3 flex items-center justify-between border-t border-zinc-800 pt-3">
-        <span className="text-xs text-zinc-600">
-          ⌘S to save · Esc to save & close · / for commands
-        </span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="rounded-md px-3 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-3 py-1 text-xs text-white transition-colors hover:bg-blue-500"
-            onClick={() => {
-              onSave(editor.getHTML())
-              onClose()
-            }}
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+    </>
   )
 }
