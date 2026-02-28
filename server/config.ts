@@ -98,4 +98,23 @@ export function hasTickets(dirPath: string): boolean {
   return existsSync(join(dirPath, '.tickets'))
 }
 
+/** Reorder projects by providing the full list of ids in desired order */
+export function reorderProjects(ids: string[]): boolean {
+  const config = readConfig()
+  const byId = new Map(config.projects.map(p => [p.id, p]))
+  const reordered: ProjectEntry[] = []
+  for (const id of ids) {
+    const entry = byId.get(id)
+    if (!entry) return false
+    reordered.push(entry)
+  }
+  // Keep any projects not in the list at the end (safety net)
+  for (const p of config.projects) {
+    if (!ids.includes(p.id)) reordered.push(p)
+  }
+  config.projects = reordered
+  writeConfig(config)
+  return true
+}
+
 export { CONFIG_PATH }

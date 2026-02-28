@@ -140,15 +140,17 @@ function matchTagField(
   value: FilterClause['value'],
 ): boolean {
   if (!Array.isArray(value)) return true
+  // Defensive: tags could be a string or undefined from malformed ticket data
+  const safeTags = Array.isArray(tags) ? tags : []
   const vals = value as string[]
 
   switch (operator) {
     case 'any_of':
       // Ticket has at least one of the specified tags
-      return vals.some(v => tags.includes(v))
+      return vals.some(v => safeTags.includes(v))
     case 'none_of':
       // Ticket has none of the specified tags
-      return !vals.some(v => tags.includes(v))
+      return !vals.some(v => safeTags.includes(v))
     default:
       return true
   }
@@ -278,7 +280,7 @@ export function uniqueFieldValues(tickets: TicketSummary[], field: FilterField):
       case 'status': vals.add(t.status); break
       case 'priority': vals.add(String(t.priority)); break
       case 'type': vals.add(t.type); break
-      case 'tag': t.tags.forEach(tag => { if (typeof tag === 'string') vals.add(tag) }); break
+      case 'tag': (Array.isArray(t.tags) ? t.tags : []).forEach(tag => { if (typeof tag === 'string') vals.add(tag) }); break
       case 'assignee': if (t.assignee) vals.add(t.assignee); break
     }
   }

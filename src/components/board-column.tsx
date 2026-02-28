@@ -8,6 +8,7 @@ import { TagList } from './tag-pill'
 import { applyFiltersAndSort } from '@/lib/filter-engine'
 import type { SavedList, TicketSummary } from '@/lib/types'
 import { Pencil, DotsSixVertical } from '@phosphor-icons/react'
+import { LinkifiedText } from './linkified-text'
 
 // ── Card ──────────────────────────────────────────────────────
 
@@ -24,10 +25,10 @@ function BoardCard({ ticket }: { ticket: TicketSummary }) {
         <span className="font-mono text-[10px] text-zinc-500">{ticket.id}</span>
         <StatusDot status={ticket.status} />
       </div>
-      <div className="mb-auto line-clamp-2 text-sm leading-snug text-zinc-200">{ticket.title}</div>
+      <div className="mb-auto line-clamp-2 text-sm leading-snug text-zinc-200"><LinkifiedText>{ticket.title}</LinkifiedText></div>
       <div className="flex items-center justify-between">
         <PriorityIcon priority={ticket.priority} />
-        {ticket.tags.length > 0 && <TagList tags={ticket.tags} max={2} />}
+        {ticket.tags?.length > 0 && <TagList tags={ticket.tags} max={2} />}
       </div>
     </div>
   )

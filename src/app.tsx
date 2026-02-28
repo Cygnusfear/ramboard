@@ -6,10 +6,12 @@ import { useUIStore } from '@/stores/ui-store'
 import { useViewStore } from '@/stores/view-store'
 import { useFilterStore } from '@/stores/filter-store'
 import { useKeyboard } from '@/hooks/use-keyboard'
+import { useFilterUrlSync } from '@/hooks/use-filter-url-sync'
 import { ProjectRail } from '@/components/project-rail'
 import { HeaderBar } from '@/components/header-bar'
 import { ListView } from '@/components/list-view'
 import { BoardView } from '@/components/board-view'
+import { GraphView } from '@/components/graph-view'
 import { TicketDetail } from '@/components/ticket-detail'
 import { BulkActionBar } from '@/components/bulk-action-bar'
 import { CommandPalette } from '@/components/command-palette'
@@ -54,8 +56,14 @@ function useProjectViewSetup(projectId: string | null, viewId: string | null) {
   }, [viewId, views, activeViewId, setActiveView])
 
   // When active view changes, load its filters into filter store (list mode)
+  // Skip if URL already has filter params (URL takes priority over saved view)
   useEffect(() => {
     if (activeView?.mode === 'list' && activeView.list) {
+      const hasUrlFilters = window.location.search.includes('f=') || window.location.search.includes('q=')
+      if (hasUrlFilters) {
+        useViewStore.getState().markClean()
+        return
+      }
       const { filters, sortField, sortDir } = activeView.list
       useFilterStore.setState({ filters, sortField, sortDir })
       useViewStore.getState().markClean()
@@ -66,6 +74,19 @@ function useProjectViewSetup(projectId: string | null, viewId: string | null) {
 }
 
 /** Syncs route params → stores */
+function ViewContent({ viewMode, loading }: { viewMode: string; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="text-sm text-zinc-500">Loading tickets...</div>
+      </div>
+    )
+  }
+  if (viewMode === 'graph') return <GraphView />
+  if (viewMode === 'board') return <BoardView />
+  return <ListView />
+}
+
 function ProjectView() {
   const [, params] = useRoute('/:projectId')
   const projectId = params?.projectId ?? null
@@ -74,15 +95,7 @@ function ProjectView() {
   return (
     <>
       <HeaderBar />
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-sm text-zinc-500">Loading tickets...</div>
-        </div>
-      ) : viewMode === 'list' ? (
-        <ListView />
-      ) : (
-        <BoardView />
-      )}
+      <ViewContent viewMode={viewMode} loading={loading} />
     </>
   )
 }
@@ -97,15 +110,7 @@ function ProjectViewWithViewId() {
   return (
     <>
       <HeaderBar />
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-sm text-zinc-500">Loading tickets...</div>
-        </div>
-      ) : viewMode === 'list' ? (
-        <ListView />
-      ) : (
-        <BoardView />
-      )}
+      <ViewContent viewMode={viewMode} loading={loading} />
     </>
   )
 }
@@ -137,6 +142,7 @@ export function App() {
   const { fetchProjects } = useProjectStore()
 
   useKeyboard()
+  useFilterUrlSync()
 
   useEffect(() => {
     fetchProjects()

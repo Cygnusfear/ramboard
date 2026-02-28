@@ -7,7 +7,7 @@ import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { FilterBar } from './filter-bar'
-import { List, Kanban, FloppyDisk, CaretDown, Plus, Trash, Check } from '@phosphor-icons/react'
+import { List, Kanban, Graph, FloppyDisk, CaretDown, Plus, Trash, Check } from '@phosphor-icons/react'
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { Popover } from '@base-ui/react/popover'
@@ -92,10 +92,16 @@ export function HeaderBar() {
 
   const handleModeToggle = (values: string[]) => {
     if (values.length === 0) return
-    const targetMode = values[0] as 'list' | 'board'
+    const targetMode = values[0] as 'list' | 'board' | 'graph'
     if (targetMode === viewMode) return
+    // Find an existing view with this mode, or update the current view locally
     const target = views.find(v => v.mode === targetMode)
-    if (target) switchView(target.id)
+    if (target) {
+      switchView(target.id)
+    } else if (activeView) {
+      // Temporarily switch mode on current view (no server persist)
+      useViewStore.getState().updateViewLocal(activeView.id, { mode: targetMode })
+    }
   }
 
   const handleSave = useCallback(async () => {
@@ -137,6 +143,13 @@ export function HeaderBar() {
             <Kanban size={14} />
             Board
           </Toggle>
+          <Toggle
+            value="graph"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-300 data-[pressed]:bg-zinc-800 data-[pressed]:text-zinc-100"
+          >
+            <Graph size={14} />
+            Graph
+          </Toggle>
         </ToggleGroup>
 
         {/* View picker */}
@@ -160,7 +173,7 @@ export function HeaderBar() {
                         v.id === activeViewId ? 'text-zinc-100' : 'text-zinc-400'
                       }`}
                     >
-                      {v.mode === 'list' ? <List size={12} /> : <Kanban size={12} />}
+                      {v.mode === 'list' ? <List size={12} /> : v.mode === 'board' ? <Kanban size={12} /> : <Graph size={12} />}
                       {v.name}
                       {v.id === activeViewId && <Check size={12} className="ml-auto text-blue-400" />}
                     </button>
@@ -215,8 +228,8 @@ export function HeaderBar() {
         </div>
       </div>
 
-      {/* Filter bar (list mode only) */}
-      {viewMode === 'list' && <FilterBar />}
+      {/* Filter bar (list + graph modes) */}
+      {(viewMode === 'list' || viewMode === 'graph') && <FilterBar />}
 
       {/* Save-as dialog */}
       <SaveAsDialog open={showSaveAs} onClose={() => setShowSaveAs(false)} onCreated={switchView} />

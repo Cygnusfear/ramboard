@@ -3,3 +3,4 @@ dist/
 .ramboard.pid
 .DS_Store
 *.log
+.pi/presence/

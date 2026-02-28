@@ -12,6 +12,18 @@ export async function getProjects(): Promise<ProjectSummary[]> {
   return fetchJson('/projects')
 }
 
+export async function deleteProject(projectId: string): Promise<void> {
+  await fetchJson(`/projects/${projectId}`, { method: 'DELETE' })
+}
+
+export async function reorderProjects(ids: string[]): Promise<void> {
+  await fetchJson('/projects/reorder', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+}
+
 export async function getTickets(projectId: string, params?: Record<string, string>): Promise<TicketSummary[]> {
   const qs = params ? '?' + new URLSearchParams(params).toString() : ''
   return fetchJson(`/projects/${projectId}/tickets${qs}`)

@@ -1,58 +1,72 @@
-import { useRef, useEffect, useState, memo } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { useUIStore } from '@/stores/ui-store'
-import { useProjectStore } from '@/stores/project-store'
-import { useTicketStore } from '@/stores/ticket-store'
-import { useFilterStore } from '@/stores/filter-store'
-import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
-import { useLocation } from 'wouter'
-import { StatusDot } from './status-dot'
-import { PriorityIcon } from './priority-icon'
-import { TagList } from './tag-pill'
-import { CaretUp, CaretDown, Check } from '@phosphor-icons/react'
-import { TicketContextMenu, DotMenu } from './ticket-context-menu'
+import { useFilteredTickets } from "@/hooks/use-filtered-tickets";
 import {
   createListInteraction,
   type ListInteraction,
   type ListViewState,
-} from '@/lib/list-interaction'
-import type { SortField, TicketSummary } from '@/lib/types'
+} from "@/lib/list-interaction";
+import type { SortField, TicketSummary } from "@/lib/types";
+import { useFilterStore } from "@/stores/filter-store";
+import { useProjectStore } from "@/stores/project-store";
+import { useTicketStore } from "@/stores/ticket-store";
+import { useUIStore } from "@/stores/ui-store";
+import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { memo, useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
+import { LinkifiedText } from "./linkified-text";
+import { PriorityIcon } from "./priority-icon";
+import { StatusDot } from "./status-dot";
+import { TagList } from "./tag-pill";
+import { DotMenu, TicketContextMenu } from "./ticket-context-menu";
 
 // ── Constants ─────────────────────────────────────────────────
 
-const ROW_HEIGHT = 36
+const ROW_HEIGHT = 36;
 
 // ── Helpers ───────────────────────────────────────────────────
 
 function timeAgo(dateStr: string): string {
-  if (!dateStr) return ''
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const days = Math.floor((now - then) / 86400000)
-  if (days === 0) return 'today'
-  if (days === 1) return '1d ago'
-  if (days < 30) return `${days}d ago`
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`
-  return `${Math.floor(days / 365)}y ago`
+  if (!dateStr) return "";
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const days = Math.floor((now - then) / 86400000);
+  if (days === 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 // ── Sort header ───────────────────────────────────────────────
 
-function SortHeader({ field, label, className }: { field: SortField; label: string; className?: string }) {
-  const { sortField, sortDir, setSort } = useFilterStore()
-  const active = sortField === field
+function SortHeader({
+  field,
+  label,
+  className,
+}: {
+  field: SortField;
+  label: string;
+  className?: string;
+}) {
+  const { sortField, sortDir, setSort } = useFilterStore();
+  const active = sortField === field;
 
   return (
     <button
       onClick={() => setSort(field)}
       className={`flex items-center gap-0.5 text-[11px] uppercase tracking-wider select-none ${
-        active ? 'text-zinc-300' : 'text-zinc-600 hover:text-zinc-400'
-      } ${className ?? ''}`}
+        active ? "text-zinc-300" : "text-zinc-600 hover:text-zinc-400"
+      } ${className ?? ""}`}
     >
       {label}
-      {active && (sortDir === 'asc' ? <CaretUp size={10} weight="bold" /> : <CaretDown size={10} weight="bold" />)}
+      {active &&
+        (sortDir === "asc" ? (
+          <CaretUp size={10} weight="bold" />
+        ) : (
+          <CaretDown size={10} weight="bold" />
+        ))}
     </button>
-  )
+  );
 }
 
 // ── Single row — memoized ─────────────────────────────────────
@@ -64,26 +78,22 @@ const ListRow = memo(function ListRow({
   isSelected,
   menuActions,
 }: {
-  ticket: TicketSummary
-  index: number
-  isHighlighted: boolean
-  isSelected: boolean
+  ticket: TicketSummary;
+  index: number;
+  isHighlighted: boolean;
+  isSelected: boolean;
   menuActions: {
-    onSetStatus: (ids: string[], s: string) => void
-    onSetPriority: (ids: string[], p: number) => void
-    onCopyId: (ids: string[]) => void
-    onOpen: (id: string) => void
-  }
+    onSetStatus: (ids: string[], s: string) => void;
+    onSetPriority: (ids: string[], p: number) => void;
+    onCopyId: (ids: string[]) => void;
+    onOpen: (id: string) => void;
+  };
 }) {
   return (
     <div
       data-index={index}
       className={`list-row group/row grid h-9 w-full cursor-default grid-cols-[20px_28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-2 ${
-        isSelected
-          ? 'bg-blue-500/[0.07]'
-          : isHighlighted
-            ? 'bg-zinc-800/40'
-            : ''
+        isSelected ? "bg-blue-500/[0.07]" : isHighlighted ? "bg-zinc-800/40" : ""
       }`}
     >
       {/* ··· dot menu */}
@@ -95,14 +105,12 @@ const ListRow = memo(function ListRow({
       <div
         data-action="checkbox"
         className={`flex items-center justify-center ${
-          isSelected ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+          isSelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
         }`}
       >
         <div
           className={`flex size-4 items-center justify-center rounded border ${
-            isSelected
-              ? 'border-blue-500 bg-blue-500'
-              : 'border-zinc-600 hover:border-zinc-400'
+            isSelected ? "border-blue-500 bg-blue-500" : "border-zinc-600 hover:border-zinc-400"
           }`}
         >
           {isSelected && <Check size={10} weight="bold" className="text-white" />}
@@ -112,8 +120,10 @@ const ListRow = memo(function ListRow({
       {/* Title + ID + Tags */}
       <div className="flex min-w-0 items-center gap-2 overflow-hidden">
         <span className="shrink-0 font-mono text-[11px] text-zinc-600">{ticket.id}</span>
-        <span className="truncate text-[13px] leading-tight text-zinc-200">{ticket.title}</span>
-        {ticket.tags.length > 0 && (
+        <span className="truncate text-[13px] leading-tight text-zinc-200">
+          <LinkifiedText>{ticket.title}</LinkifiedText>
+        </span>
+        {ticket.tags?.length > 0 && (
           <span className="ml-1 shrink-0">
             <TagList tags={ticket.tags} max={2} />
           </span>
@@ -133,74 +143,74 @@ const ListRow = memo(function ListRow({
       {/* Created */}
       <span className="text-right text-[11px] text-zinc-600">{timeAgo(ticket.created)}</span>
     </div>
-  )
-})
+  );
+});
 
 // ── Helpers for extracting row info from DOM events ───────────
 
 function rowIndexFromEvent(e: React.MouseEvent | MouseEvent): number | null {
-  const row = (e.target as HTMLElement).closest('[data-index]') as HTMLElement | null
-  if (!row) return null
-  return parseInt(row.dataset.index!, 10)
+  const row = (e.target as HTMLElement).closest("[data-index]") as HTMLElement | null;
+  if (!row) return null;
+  return parseInt(row.dataset.index!, 10);
 }
 
 function actionFromEvent(e: React.MouseEvent | MouseEvent): string | null {
-  const el = (e.target as HTMLElement).closest('[data-action]')
-  return el?.getAttribute('data-action') ?? null
+  const el = (e.target as HTMLElement).closest("[data-action]");
+  return el?.getAttribute("data-action") ?? null;
 }
 
 // ── Main list view ────────────────────────────────────────────
 
 export function ListView() {
-  const tickets = useFilteredTickets()
-  const highlightIndex = useUIStore(s => s.highlightIndex)
-  const setHighlightIndex = useUIStore(s => s.setHighlightIndex)
-  const { activeProjectId } = useProjectStore()
-  const { updateTicketStatus } = useTicketStore()
-  const [, navigate] = useLocation()
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const tickets = useFilteredTickets();
+  const highlightIndex = useUIStore((s) => s.highlightIndex);
+  const setHighlightIndex = useUIStore((s) => s.setHighlightIndex);
+  const { activeProjectId } = useProjectStore();
+  const { updateTicketStatus } = useTicketStore();
+  const [, navigate] = useLocation();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Keep latest deps in refs so the machine never goes stale
-  const ticketsRef = useRef(tickets)
-  ticketsRef.current = tickets
-  const navigateRef = useRef(navigate)
-  navigateRef.current = navigate
-  const updateStatusRef = useRef(updateTicketStatus)
-  updateStatusRef.current = updateTicketStatus
-  const activeProjectRef = useRef(activeProjectId)
-  activeProjectRef.current = activeProjectId
+  const ticketsRef = useRef(tickets);
+  ticketsRef.current = tickets;
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const updateStatusRef = useRef(updateTicketStatus);
+  updateStatusRef.current = updateTicketStatus;
+  const activeProjectRef = useRef(activeProjectId);
+  activeProjectRef.current = activeProjectId;
 
   // State machine — created once, reads deps through refs
   const [viewState, setViewState] = useState<ListViewState>({
     selection: new Set(),
     contextTargets: [],
-  })
+  });
 
-  const engineRef = useRef<ListInteraction | null>(null)
+  const engineRef = useRef<ListInteraction | null>(null);
   if (!engineRef.current) {
     engineRef.current = createListInteraction({
       getTickets: () => ticketsRef.current,
       navigate: (ticketId) => {
-        const pid = activeProjectRef.current
-        if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`)
+        const pid = activeProjectRef.current;
+        if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`);
       },
       cycleStatus: (ticketId, status) => {
-        const pid = activeProjectRef.current
-        if (pid) updateStatusRef.current(pid, ticketId, status)
+        const pid = activeProjectRef.current;
+        if (pid) updateStatusRef.current(pid, ticketId, status);
       },
       onChange: setViewState,
-    })
+    });
   }
-  const engine = engineRef.current
+  const engine = engineRef.current;
 
   // Sync selection to UI store (for bulk action bar)
   useEffect(() => {
-    useUIStore.setState({ selectedIds: viewState.selection })
-  }, [viewState.selection])
+    useUIStore.setState({ selectedIds: viewState.selection });
+  }, [viewState.selection]);
 
   // Scroll suppression for highlight
-  const isScrolling = useRef(false)
-  const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const isScrolling = useRef(false);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Virtualizer
   const virtualizer = useVirtualizer({
@@ -208,108 +218,124 @@ export function ListView() {
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 20,
-  })
+  });
 
   // Detect scroll to suppress hover highlights
   useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
+    const el = scrollRef.current;
+    if (!el) return;
     function onScroll() {
-      isScrolling.current = true
-      clearTimeout(scrollTimer.current)
-      scrollTimer.current = setTimeout(() => { isScrolling.current = false }, 100)
+      isScrolling.current = true;
+      clearTimeout(scrollTimer.current);
+      scrollTimer.current = setTimeout(() => {
+        isScrolling.current = false;
+      }, 100);
     }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [])
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Container event handlers — thin dispatch to engine
   function onMouseDown(e: React.MouseEvent) {
-    const idx = rowIndexFromEvent(e)
-    if (idx === null) return
-    const action = actionFromEvent(e)
-    const result = engine.mousedown(idx, e.clientX, e.clientY, {
-      shift: e.shiftKey,
-      meta: e.metaKey || e.ctrlKey,
-    }, action)
-    if (result === 'stop') e.stopPropagation()
-    if (result === 'prevent' || result === 'stop') e.preventDefault()
+    const idx = rowIndexFromEvent(e);
+    if (idx === null) return;
+    const action = actionFromEvent(e);
+    const result = engine.mousedown(
+      idx,
+      e.clientX,
+      e.clientY,
+      {
+        shift: e.shiftKey,
+        meta: e.metaKey || e.ctrlKey,
+      },
+      action,
+    );
+    if (result === "stop") e.stopPropagation();
+    if (result === "prevent" || result === "stop") e.preventDefault();
   }
 
   function onClick(e: React.MouseEvent) {
-    const idx = rowIndexFromEvent(e)
-    if (idx === null) return
-    const action = actionFromEvent(e)
-    const result = engine.click(idx, {
-      shift: e.shiftKey,
-      meta: e.metaKey || e.ctrlKey,
-    }, action)
-    if (result === 'stop') e.stopPropagation()
+    const idx = rowIndexFromEvent(e);
+    if (idx === null) return;
+    const action = actionFromEvent(e);
+    const result = engine.click(
+      idx,
+      {
+        shift: e.shiftKey,
+        meta: e.metaKey || e.ctrlKey,
+      },
+      action,
+    );
+    if (result === "stop") e.stopPropagation();
   }
 
   function onMouseMove(e: React.MouseEvent) {
-    if (isScrolling.current) return
-    const idx = rowIndexFromEvent(e)
-    if (idx !== null && engine.canHighlight()) setHighlightIndex(idx)
+    if (isScrolling.current) return;
+    const idx = rowIndexFromEvent(e);
+    if (idx !== null && engine.canHighlight()) setHighlightIndex(idx);
   }
 
   function onContextMenu(e: React.MouseEvent) {
-    const idx = rowIndexFromEvent(e)
-    if (idx !== null) engine.contextmenu(idx)
+    const idx = rowIndexFromEvent(e);
+    if (idx !== null) engine.contextmenu(idx);
   }
 
   // Global mousemove/mouseup during drag — stable, no deps to go stale
   useEffect(() => {
     function onGlobalMousemove(e: MouseEvent) {
       // Auto-scroll near edges
-      const container = scrollRef.current
+      const container = scrollRef.current;
       if (container && engine.isDragging()) {
-        const rect = container.getBoundingClientRect()
-        if (e.clientY < rect.top + 40) container.scrollTop -= 8
-        else if (e.clientY > rect.bottom - 40) container.scrollTop += 8
+        const rect = container.getBoundingClientRect();
+        if (e.clientY < rect.top + 40) container.scrollTop -= 8;
+        else if (e.clientY > rect.bottom - 40) container.scrollTop += 8;
       }
 
-      const el = document.elementFromPoint(e.clientX, e.clientY)
-      const row = el?.closest('[data-index]')
-      const idx = row ? parseInt(row.getAttribute('data-index')!, 10) : null
-      engine.globalMousemove(e.clientX, e.clientY, idx)
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const row = el?.closest("[data-index]");
+      const idx = row ? parseInt(row.getAttribute("data-index")!, 10) : null;
+      engine.globalMousemove(e.clientX, e.clientY, idx);
     }
 
     function onGlobalMouseup() {
-      engine.globalMouseup()
+      engine.globalMouseup();
     }
 
-    window.addEventListener('mousemove', onGlobalMousemove)
-    window.addEventListener('mouseup', onGlobalMouseup)
+    window.addEventListener("mousemove", onGlobalMousemove);
+    window.addEventListener("mouseup", onGlobalMouseup);
     return () => {
-      window.removeEventListener('mousemove', onGlobalMousemove)
-      window.removeEventListener('mouseup', onGlobalMouseup)
-    }
-  }, [engine])
+      window.removeEventListener("mousemove", onGlobalMousemove);
+      window.removeEventListener("mouseup", onGlobalMouseup);
+    };
+  }, [engine]);
 
   // Keyboard: Escape + Cmd+A
   useEffect(() => {
     function onKeydown(e: KeyboardEvent) {
-      if (e.key === 'Escape') engine.escape()
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !(e.target as HTMLElement).closest('input,textarea,select')) {
-        e.preventDefault()
-        engine.selectAll()
+      if (e.key === "Escape") engine.escape();
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key === "a" &&
+        !(e.target as HTMLElement).closest("input,textarea,select")
+      ) {
+        e.preventDefault();
+        engine.selectAll();
       }
     }
-    window.addEventListener('keydown', onKeydown)
-    return () => window.removeEventListener('keydown', onKeydown)
-  }, [engine])
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  }, [engine]);
 
   // Scroll to highlighted row on keyboard nav
   useEffect(() => {
-    virtualizer.scrollToIndex(highlightIndex, { align: 'auto' })
-  }, [highlightIndex, virtualizer])
+    virtualizer.scrollToIndex(highlightIndex, { align: "auto" });
+  }, [highlightIndex, virtualizer]);
 
   // Context menu action handlers — read from refs, no stale closures
   function handleSetStatus(ticketIds: string[], status: string) {
-    const pid = activeProjectRef.current
-    if (!pid) return
-    for (const id of ticketIds) updateStatusRef.current(pid, id, status)
+    const pid = activeProjectRef.current;
+    if (!pid) return;
+    for (const id of ticketIds) updateStatusRef.current(pid, id, status);
   }
 
   function handleSetPriority(_ticketIds: string[], _priority: number) {
@@ -317,12 +343,12 @@ export function ListView() {
   }
 
   function handleCopyId(ticketIds: string[]) {
-    navigator.clipboard.writeText(ticketIds.join(', '))
+    navigator.clipboard.writeText(ticketIds.join(", "));
   }
 
   function handleOpenTicket(ticketId: string) {
-    const pid = activeProjectRef.current
-    if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`)
+    const pid = activeProjectRef.current;
+    if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`);
   }
 
   // Stable ref for menu actions — avoids re-rendering every ListRow on each render
@@ -331,13 +357,13 @@ export function ListView() {
     onSetPriority: handleSetPriority,
     onCopyId: handleCopyId,
     onOpen: handleOpenTicket,
-  })
+  });
   menuActionsRef.current = {
     onSetStatus: handleSetStatus,
     onSetPriority: handleSetPriority,
     onCopyId: handleCopyId,
     onOpen: handleOpenTicket,
-  }
+  };
 
   // Stable wrapper that delegates to ref — same identity across renders
   const [menuActions] = useState(() => ({
@@ -345,13 +371,13 @@ export function ListView() {
     onSetPriority: (ids: string[], p: number) => menuActionsRef.current.onSetPriority(ids, p),
     onCopyId: (ids: string[]) => menuActionsRef.current.onCopyId(ids),
     onOpen: (id: string) => menuActionsRef.current.onOpen(id),
-  }))
+  }));
 
-  const virtualItems = virtualizer.getVirtualItems()
-  const { selection } = viewState
+  const virtualItems = virtualizer.getVirtualItems();
+  const { selection } = viewState;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden select-none">
+    <div className="relative flex flex-1 flex-col overflow-hidden select-none">
       {/* Column headers */}
       <div className="grid grid-cols-[20px_28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800 bg-zinc-950 px-2 py-1.5">
         <div />
@@ -364,7 +390,7 @@ export function ListView() {
 
       {/* Selection info bar */}
       {selection.size > 0 && (
-        <div className="flex items-center gap-3 border-b border-blue-500/20 bg-blue-500/[0.05] px-4 py-1">
+        <div className="absolute top-full left-0 w-full flex items-center gap-3 border-b border-blue-500/20 bg-blue-500/[0.05] px-4 py-1">
           <span className="text-xs font-medium text-blue-400">{selection.size} selected</span>
           <button
             onClick={() => engine.clear()}
@@ -401,8 +427,8 @@ export function ListView() {
               style={{ height: virtualizer.getTotalSize() }}
             >
               {virtualItems.map((vrow) => {
-                const ticket = tickets[vrow.index]
-                if (!ticket) return null
+                const ticket = tickets[vrow.index];
+                if (!ticket) return null;
 
                 return (
                   <div
@@ -418,12 +444,12 @@ export function ListView() {
                       menuActions={menuActions}
                     />
                   </div>
-                )
+                );
               })}
             </div>
           )}
         </div>
       </TicketContextMenu>
     </div>
-  )
+  );
 }

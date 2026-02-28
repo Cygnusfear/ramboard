@@ -43,6 +43,14 @@ export async function parseTicketsDir(ticketsPath: string, projectId: string): P
   return tickets
 }
 
+/** Normalize a YAML list field — handles null, string, comma-separated string, or array */
+function normalizeList(raw: unknown): string[] {
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw.map(String).map(s => s.trim()).filter(Boolean)
+  if (typeof raw === 'string') return raw.split(',').map(s => s.trim()).filter(Boolean)
+  return []
+}
+
 function parseTicket(content: string, projectId: string, mtime?: Date): Ticket | null {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!match) return null
@@ -65,9 +73,9 @@ function parseTicket(content: string, projectId: string, mtime?: Date): Ticket |
     status: meta.status || 'open',
     type: meta.type || 'task',
     priority: meta.priority ?? 2,
-    tags: meta.tags || [],
-    deps: meta.deps || [],
-    links: meta.links || [],
+    tags: normalizeList(meta.tags),
+    deps: normalizeList(meta.deps),
+    links: normalizeList(meta.links),
     created: meta.created || '',
     modified: mtime?.toISOString() ?? meta.created ?? '',
     assignee: meta.assignee,

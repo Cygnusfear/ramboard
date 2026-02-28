@@ -24,7 +24,7 @@ export interface ProjectSummary {
   total: number
 }
 
-export type ViewMode = 'list' | 'board'
+export type ViewMode = 'list' | 'board' | 'graph'
 export type SortField = 'priority' | 'created' | 'modified' | 'title' | 'status'
 export type SortDir = 'asc' | 'desc'
 
@@ -56,7 +56,7 @@ export interface SavedList {
 export interface SavedView {
   id: string
   name: string
-  mode: 'list' | 'board'
+  mode: ViewMode
   /** List mode — single filtered list */
   list?: SavedList
   /** Board mode — columns rendered left-to-right, leftmost match wins */

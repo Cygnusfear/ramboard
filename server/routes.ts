@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { readConfig, addProject, removeProject, hasTickets } from './config'
+import { readConfig, addProject, removeProject, reorderProjects, hasTickets } from './config'
 import { parseTicketsDir, type Ticket } from './ticket-parser'
 import { updateTicketFile, toggleCheckbox, type TicketUpdate } from './ticket-writer'
 import { readViews, createView, updateView, deleteView, seedDefaultViews } from './views'
@@ -51,6 +51,14 @@ export async function handleApi(req: Request): Promise<Response | null> {
     return json(entry, 201)
   }
 
+  // PUT /api/projects/reorder — reorder projects { ids: ["id1", "id2", ...] }
+  if (method === 'PUT' && path === '/api/projects/reorder') {
+    const body = await req.json() as { ids?: string[] }
+    if (!body.ids || !Array.isArray(body.ids)) return json({ error: 'ids array required' }, 400)
+    const ok = reorderProjects(body.ids)
+    return ok ? json({ ok: true }) : json({ error: 'invalid ids' }, 400)
+  }
+
   // DELETE /api/projects/:id — remove a project
   const deleteProjectMatch = path.match(/^\/api\/projects\/([^\/]+)$/)
   if (method === 'DELETE' && deleteProjectMatch) {
@@ -74,7 +82,7 @@ export async function handleApi(req: Request): Promise<Response | null> {
 
     if (status) tickets = tickets.filter(t => t.status === status)
     if (priority) tickets = tickets.filter(t => t.priority === Number(priority))
-    if (tag) tickets = tickets.filter(t => t.tags.includes(tag))
+    if (tag) tickets = tickets.filter(t => Array.isArray(t.tags) && t.tags.includes(tag))
 
     const sort = url.searchParams.get('sort') || 'priority'
     const dir = url.searchParams.get('dir') === 'desc' ? -1 : 1
