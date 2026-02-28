@@ -37,12 +37,12 @@ function serializeToSearch(state: {
  * Deserialize URL search string to filter state.
  * Returns null if nothing relevant found in URL.
  */
-function deserializeFromSearch(search: string): {
+function deserializeFromSearch(search: string): Partial<{
   filters: FilterSet
   search: string
   sortField: SortField
   sortDir: SortDir
-} | null {
+}> | null {
   if (!search) return null
   const params = new URLSearchParams(search)
 
@@ -51,18 +51,22 @@ function deserializeFromSearch(search: string): {
     return null
   }
 
-  let filters: FilterSet = []
+  const result: Partial<{
+    filters: FilterSet
+    search: string
+    sortField: SortField
+    sortDir: SortDir
+  }> = {}
+
   const filtersRaw = params.get('f')
   if (filtersRaw) {
-    try { filters = JSON.parse(filtersRaw) } catch { /* ignore */ }
+    try { result.filters = JSON.parse(filtersRaw) } catch { /* ignore */ }
   }
+  if (params.has('q')) result.search = params.get('q')!
+  if (params.has('sf')) result.sortField = params.get('sf') as SortField
+  if (params.has('sd')) result.sortDir = params.get('sd') as SortDir
 
-  return {
-    filters,
-    search: params.get('q') ?? '',
-    sortField: (params.get('sf') as SortField) ?? 'priority',
-    sortDir: (params.get('sd') as SortDir) ?? 'asc',
-  }
+  return result
 }
 
 /** Last known filter search string — survives navigation to ticket detail */

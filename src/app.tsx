@@ -60,6 +60,7 @@ function useProjectViewSetup(projectId: string | null, viewId: string | null) {
   useEffect(() => {
     if (activeView?.mode === 'list' && activeView.list) {
       const hasUrlFilters = window.location.search.includes('f=') || window.location.search.includes('q=')
+        || window.location.search.includes('sf=') || window.location.search.includes('sd=')
       if (hasUrlFilters) {
         useViewStore.getState().markClean()
         return
