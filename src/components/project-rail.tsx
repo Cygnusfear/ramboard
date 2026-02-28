@@ -177,7 +177,7 @@ export function ProjectRail() {
   }, [projects, reorderProjects])
 
   return (
-    <nav className="flex w-14 flex-col items-center gap-2 border-r border-zinc-800 bg-zinc-950 px-3 py-3">
+    <nav className="flex w-14 flex-col items-center gap-2 border-r border-zinc-800 bg-zinc-950 px-3 py-3" style={{ viewTransitionName: 'sidebar' }}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

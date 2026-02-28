@@ -149,10 +149,10 @@ export function App() {
   }, [fetchProjects])
 
   return (
-    <div className="flex h-[100dvh]">
+    <div className="flex h-[100dvh] overflow-hidden">
       <ProjectRail />
 
-      <div className="relative flex flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col" style={{ viewTransitionName: 'content' }}>
         <Switch>
           <Route path="/:projectId/ticket/:ticketId" component={TicketDetailView} />
           <Route path="/:projectId/view/:viewId" component={ProjectViewWithViewId} />
