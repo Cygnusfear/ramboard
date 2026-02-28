@@ -93,7 +93,7 @@ const ListRow = memo(function ListRow({
     <div
       data-index={index}
       className={`list-row group/row grid h-9 w-full cursor-default grid-cols-[20px_28px_1fr_72px_96px_64px] items-center gap-0 border-b border-zinc-800/40 px-2 ${
-        isSelected ? "bg-blue-500/[0.07]" : isHighlighted ? "bg-zinc-800/40" : ""
+        isSelected ? "bg-blue-500/[0.07]" : isHighlighted ? "bg-zinc-800/40" : ticket.tags?.includes("board-review") ? "bg-yellow-500/[0.06]" : ""
       }`}
     >
       {/* ··· dot menu */}

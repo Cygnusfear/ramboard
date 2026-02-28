@@ -282,7 +282,9 @@ export function GraphView() {
           {/* Nodes */}
           {layout.nodes.map(({ ticket, x, y, width, height }) => {
             const isEpic = ticket.type === 'epic' || ticket.tags?.includes('epic')
+            const isBoardReview = ticket.tags?.includes('board-review')
             const borderColor = isEpic ? '#f97316' : (STATUS_COLORS[ticket.status] ?? '#71717a')
+            const nodeFill = isBoardReview ? '#1a1a0f' : '#18181b'
             const nx = x - width / 2
             const ny = y - height / 2
             return (
@@ -301,7 +303,7 @@ export function GraphView() {
                   height={height}
                   rx={6}
                   ry={6}
-                  fill="#18181b"
+                  fill={nodeFill}
                   stroke={borderColor}
                   strokeWidth={isEpic ? 2 : 1.5}
                 />
