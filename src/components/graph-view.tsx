@@ -284,7 +284,7 @@ export function GraphView() {
             const isEpic = ticket.type === 'epic' || ticket.tags?.includes('epic')
             const isBoardReview = ticket.tags?.includes('board-review')
             const borderColor = isEpic ? '#f97316' : (STATUS_COLORS[ticket.status] ?? '#71717a')
-            const nodeFill = isBoardReview ? '#302a0a' : '#18181b'
+            const nodeFill = isBoardReview ? '#241f0a' : '#18181b'
             const nx = x - width / 2
             const ny = y - height / 2
             return (
