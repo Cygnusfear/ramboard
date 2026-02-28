@@ -4,7 +4,7 @@
  */
 import { join } from 'path'
 import { homedir } from 'os'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
 
 export interface ProjectEntry {
   id: string
@@ -88,6 +88,11 @@ export function removeProject(id: string): boolean {
   config.projects = config.projects.filter(p => p.id !== id)
   if (config.projects.length < before) {
     writeConfig(config)
+    // Clean up project data folder (~/.ramboard/<id>/)
+    const projectDir = join(CONFIG_DIR, id)
+    if (existsSync(projectDir)) {
+      rmSync(projectDir, { recursive: true, force: true })
+    }
     return true
   }
   return false
