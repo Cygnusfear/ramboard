@@ -35,6 +35,7 @@ interface TicketBodyEditorProps {
 export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedRef = useRef(body)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const [, navigate] = useNavigate()
   const { activeProjectId } = useProjectStore()
   const knownIds = useKnownTicketIds()
@@ -51,19 +52,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => save(html), 1500)
   }, [save])
-
-  // Handle link clicks: Cmd+click opens links, plain ticket IDs navigate
-  const handleLinkClick = useCallback((href: string, event: MouseEvent) => {
-    // Check if it's a ticket ID link
-    const ticketMatch = href.match(/\/ticket\/([a-z0-9]+-[a-z0-9]+)$/)
-    if (ticketMatch && activeProjectId) {
-      event.preventDefault()
-      navigate(`/${activeProjectId}/ticket/${ticketMatch[1]}`)
-      return
-    }
-    // External links — open in new tab
-    window.open(href, '_blank', 'noopener')
-  }, [navigate, activeProjectId])
 
   const editor = useEditor({
     extensions: [
@@ -94,37 +82,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
       attributes: {
         class: 'ticket-editor-body',
       },
-      // Cmd+click to open links
-      handleClick: (view, _pos, event) => {
-        if (!event.metaKey && !event.ctrlKey) return false
-
-        const target = event.target as HTMLElement
-        const link = target.closest('a')
-        if (!link) return false
-
-        const href = link.getAttribute('href')
-        if (!href) return false
-
-        event.preventDefault()
-        handleLinkClick(href, event)
-        return true
-      },
-      // Also handle click on ticket-id decorations
-      handleDOMEvents: {
-        click: (view, event) => {
-          const target = event.target as HTMLElement
-          if (target.classList.contains('ticket-id-link')) {
-            const ticketId = target.getAttribute('data-ticket-id')
-            if (ticketId && activeProjectId) {
-              // Without modifier: navigate (these are read-only decorations, not editable)
-              event.preventDefault()
-              navigate(`/${activeProjectId}/ticket/${ticketId}`)
-              return true
-            }
-          }
-          return false
-        },
-      },
     },
     onUpdate: ({ editor }) => {
       debouncedSave(editor.getHTML())
@@ -139,7 +96,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
   useEffect(() => {
     if (editor && knownIds.size > 0) {
       const plugin = ticketLinkPlugin(knownIds)
-      // Only add if not already registered
       const pluginKey = (plugin.spec as any).key
       const existing = editor.view.state.plugins.find(
         p => (p.spec as any).key === pluginKey
@@ -149,6 +105,51 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
       }
     }
   }, [editor, knownIds])
+
+  // Direct DOM click handler for links and ticket IDs.
+  // ProseMirror's event pipeline swallows clicks, so we listen on
+  // the wrapper div in the capture phase to get there first.
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+
+      // 1. Ticket ID decoration — always clickable (plain click)
+      if (target.classList.contains('ticket-id-link')) {
+        const ticketId = target.getAttribute('data-ticket-id')
+        if (ticketId && activeProjectId) {
+          e.preventDefault()
+          e.stopPropagation()
+          navigate(`/${activeProjectId}/ticket/${ticketId}`)
+          return
+        }
+      }
+
+      // 2. Regular <a> links — Cmd+click (or Ctrl+click) to open
+      const link = target.closest('a')
+      if (link && (e.metaKey || e.ctrlKey)) {
+        const href = link.getAttribute('href')
+        if (!href) return
+
+        e.preventDefault()
+        e.stopPropagation()
+
+        // Check if it's a ticket ID link
+        const ticketMatch = href.match(/\/ticket\/([a-z0-9]+-[a-z0-9]+)$/)
+        if (ticketMatch && activeProjectId) {
+          navigate(`/${activeProjectId}/ticket/${ticketMatch[1]}`)
+        } else {
+          window.open(href, '_blank', 'noopener')
+        }
+      }
+    }
+
+    // Capture phase so we get the event before ProseMirror
+    el.addEventListener('click', handleClick, true)
+    return () => el.removeEventListener('click', handleClick, true)
+  }, [navigate, activeProjectId])
 
   // Cmd+S to force save
   useEffect(() => {
@@ -165,7 +166,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [editor, save])
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -175,7 +175,7 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
   if (!editor) return null
 
   return (
-    <>
+    <div ref={wrapperRef}>
       <BubbleMenu
         editor={editor}
         className="flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-800 p-1 shadow-xl shadow-zinc-950/80"
@@ -227,6 +227,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
       </BubbleMenu>
 
       <EditorContent editor={editor} />
-    </>
+    </div>
   )
 }
