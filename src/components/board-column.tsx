@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useProjectStore } from '@/stores/project-store'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { PriorityIcon } from './priority-icon'
 import { StatusDot } from './status-dot'
 import { TagList } from './tag-pill'
@@ -14,7 +14,7 @@ import { LinkifiedText } from './linkified-text'
 
 function BoardCard({ ticket }: { ticket: TicketSummary }) {
   const { activeProjectId } = useProjectStore()
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
 
   return (
     <div

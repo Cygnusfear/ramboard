@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { useUIStore } from '@/stores/ui-store'
 import { useFilterStore } from '@/stores/filter-store'
 import { useViewStore } from '@/stores/view-store'
@@ -74,7 +74,7 @@ function SaveAsDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
 export function HeaderBar() {
   const { setShowCommandPalette } = useUIStore()
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
   const { views, activeViewId, setActiveView, dirty, saveView, deleteView } = useViewStore()
   const { activeProjectId } = useProjectStore()
   const filtered = useFilteredTickets()

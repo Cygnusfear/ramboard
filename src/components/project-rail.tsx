@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useProjectStore } from '@/stores/project-store'
 import { Gear, Trash } from '@phosphor-icons/react'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import {
   DndContext,
@@ -134,7 +134,7 @@ function SortableProject({
 
 export function ProjectRail() {
   const { projects, activeProjectId, deleteProject, reorderProjects } = useProjectStore()
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

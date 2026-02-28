@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { useUIStore } from '@/stores/ui-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
@@ -18,7 +18,7 @@ function getVisibleTickets() {
 export function useKeyboard() {
   const gPending = useRef(false)
   const gTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {

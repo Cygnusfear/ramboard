@@ -4,7 +4,7 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useUIStore } from '@/stores/ui-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
@@ -14,7 +14,7 @@ export function CommandPalette() {
   const { showCommandPalette, setShowCommandPalette } = useUIStore()
   const tickets = useTicketStore(s => s.tickets)
   const { activeProjectId } = useProjectStore()
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
 
   const handleSelect = (ticketId: string) => {
     if (activeProjectId) {

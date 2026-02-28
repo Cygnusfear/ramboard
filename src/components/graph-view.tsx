@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import dagre from '@dagrejs/dagre'
 import { useFilteredTickets } from '@/hooks/use-filtered-tickets'
 import { useProjectStore } from '@/stores/project-store'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { STATUS_LABELS, type TicketSummary } from '@/lib/types'
@@ -156,7 +156,7 @@ const STATUS_COLORS: Record<string, string> = {
 export function GraphView() {
   const tickets = useFilteredTickets()
   const { activeProjectId } = useProjectStore()
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState<{ ticket: TicketSummary; mx: number; my: number } | null>(null)
 

@@ -1,4 +1,4 @@
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { useProjectStore } from '@/stores/project-store'
 
 interface TicketLinkProps {
@@ -10,7 +10,7 @@ interface TicketLinkProps {
  * Inline clickable ticket ID that navigates to the ticket detail view.
  */
 export function TicketLink({ id, className = '' }: TicketLinkProps) {
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
   const { activeProjectId } = useProjectStore()
 
   const handleClick = (e: React.MouseEvent) => {

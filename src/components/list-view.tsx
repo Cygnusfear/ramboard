@@ -12,12 +12,12 @@ import { useUIStore } from "@/stores/ui-store";
 import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
 import { LinkifiedText } from "./linkified-text";
 import { PriorityIcon } from "./priority-icon";
 import { StatusDot } from "./status-dot";
 import { TagList } from "./tag-pill";
 import { DotMenu, TicketContextMenu } from "./ticket-context-menu";
+import { useNavigate } from "@/hooks/use-navigate";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -167,7 +167,7 @@ export function ListView() {
   const setHighlightIndex = useUIStore((s) => s.setHighlightIndex);
   const { activeProjectId } = useProjectStore();
   const { updateTicketStatus } = useTicketStore();
-  const [, navigate] = useLocation();
+  const [, navigate] = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Keep latest deps in refs so the machine never goes stale

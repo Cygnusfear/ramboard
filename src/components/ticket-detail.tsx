@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
-import { useLocation } from 'wouter'
+import { useNavigate } from '@/hooks/use-navigate'
 import { getLastFilterSearch } from '@/hooks/use-filter-url-sync'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
@@ -17,7 +17,7 @@ import remarkGfm from 'remark-gfm'
 export function TicketDetail() {
   const { activeTicket, tickets, updateTicketStatus } = useTicketStore()
   const { activeProjectId } = useProjectStore()
-  const [, navigate] = useLocation()
+  const [, navigate] = useNavigate()
   const markdownComponents = useLinkifiedMarkdown()
 
   // Compute reverse relationships: other tickets that dep on or link to this one
