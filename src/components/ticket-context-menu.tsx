@@ -73,7 +73,7 @@ function MenuContent({
       {/* Open ticket (single only) */}
       {single && (
         <>
-          <NS.Item className={itemCls} onSelect={() => actions.onOpen(single.id)}>
+          <NS.Item className={itemCls} onClick={() => actions.onOpen(single.id)}>
             <ArrowSquareOut size={14} className="text-zinc-500" />
             Open ticket
             <span className={kbdCls}>Enter</span>
@@ -101,7 +101,7 @@ function MenuContent({
                 <NS.Item
                   key={opt.value}
                   className={itemCls}
-                  onSelect={() => actions.onSetStatus(ids, opt.value)}
+                  onClick={() => actions.onSetStatus(ids, opt.value)}
                 >
                   <span className="flex w-3.5 items-center justify-center">
                     {currentStatus === opt.value && <CheckCircle size={12} weight="bold" className="text-blue-400" />}
@@ -135,7 +135,7 @@ function MenuContent({
                 <NS.Item
                   key={opt.value}
                   className={itemCls}
-                  onSelect={() => actions.onSetPriority(ids, opt.value)}
+                  onClick={() => actions.onSetPriority(ids, opt.value)}
                 >
                   <span className="flex w-3.5 items-center justify-center">
                     {currentPriority === opt.value && <CheckCircle size={12} weight="bold" className="text-blue-400" />}
@@ -174,7 +174,7 @@ function MenuContent({
       <NS.Separator className={separatorCls} />
 
       {/* Copy ID */}
-      <NS.Item className={itemCls} onSelect={() => actions.onCopyId(ids)}>
+      <NS.Item className={itemCls} onClick={() => actions.onCopyId(ids)}>
         <Copy size={14} className="text-zinc-500" />
         {count > 1 ? `Copy ${count} IDs` : 'Copy ID'}
         <span className={kbdCls}>C</span>

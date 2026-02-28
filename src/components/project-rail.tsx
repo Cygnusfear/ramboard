@@ -105,14 +105,14 @@ function SortableProject({
             <ContextMenu.Popup className={popupCls}>
               <ContextMenu.Item
                 className={itemCls}
-                onSelect={() => onNavigate(project.id)}
+                onClick={() => onNavigate(project.id)}
               >
                 Open
               </ContextMenu.Item>
               <ContextMenu.Separator className="mx-2 my-1 h-px bg-zinc-800" />
               <ContextMenu.Item
                 className={dangerItemCls}
-                onSelect={() => onDelete(project.id)}
+                onClick={() => onDelete(project.id)}
               >
                 <Trash size={14} />
                 Remove project
