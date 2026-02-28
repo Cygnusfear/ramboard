@@ -87,6 +87,62 @@ code, .font-mono {
   }
 }
 
+/* ── TipTap Editor ─────────────────────────────────────────── */
+
+/* Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #52525b;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Task list checkboxes */
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.tiptap ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
+  accent-color: #3b82f6;
+}
+
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  text-decoration: line-through;
+  color: #71717a;
+}
+
+/* Table styles */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.tiptap table td,
+.tiptap table th {
+  border: 1px solid #3f3f46;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.tiptap table th {
+  background: #27272a;
+  font-weight: 500;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

@@ -12,6 +12,9 @@ interface TicketState {
   clearActiveTicket: () => void
   updateTicketStatus: (projectId: string, ticketId: string, status: string) => Promise<void>
   updateTicketPriority: (projectId: string, ticketId: string, priority: number) => Promise<void>
+  updateTicketType: (projectId: string, ticketId: string, type: string) => Promise<void>
+  updateTicketTags: (projectId: string, ticketId: string, tags: string[]) => Promise<void>
+  updateTicketBody: (projectId: string, ticketId: string, body: string) => Promise<void>
 }
 
 export const useTicketStore = create<TicketState>((set) => ({
@@ -49,6 +52,9 @@ export const useTicketStore = create<TicketState>((set) => ({
       tickets: state.tickets.map(t =>
         t.id === ticketId ? { ...t, status: status as TicketSummary['status'] } : t
       ),
+      activeTicket: state.activeTicket?.id === ticketId
+        ? { ...state.activeTicket, status: status as TicketSummary['status'] }
+        : state.activeTicket,
     }))
   },
 
@@ -58,6 +64,42 @@ export const useTicketStore = create<TicketState>((set) => ({
       tickets: state.tickets.map(t =>
         t.id === ticketId ? { ...t, priority } : t
       ),
+      activeTicket: state.activeTicket?.id === ticketId
+        ? { ...state.activeTicket, priority }
+        : state.activeTicket,
+    }))
+  },
+
+  updateTicketType: async (projectId, ticketId, type) => {
+    await updateTicket(projectId, ticketId, { type })
+    set(state => ({
+      tickets: state.tickets.map(t =>
+        t.id === ticketId ? { ...t, type } : t
+      ),
+      activeTicket: state.activeTicket?.id === ticketId
+        ? { ...state.activeTicket, type }
+        : state.activeTicket,
+    }))
+  },
+
+  updateTicketTags: async (projectId, ticketId, tags) => {
+    await updateTicket(projectId, ticketId, { tags })
+    set(state => ({
+      tickets: state.tickets.map(t =>
+        t.id === ticketId ? { ...t, tags } : t
+      ),
+      activeTicket: state.activeTicket?.id === ticketId
+        ? { ...state.activeTicket, tags }
+        : state.activeTicket,
+    }))
+  },
+
+  updateTicketBody: async (projectId, ticketId, body) => {
+    await updateTicket(projectId, ticketId, { body })
+    set(state => ({
+      activeTicket: state.activeTicket?.id === ticketId
+        ? { ...state.activeTicket, body }
+        : state.activeTicket,
     }))
   },
 }))

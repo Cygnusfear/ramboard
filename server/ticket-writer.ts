@@ -5,7 +5,9 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 export interface TicketUpdate {
   status?: string
   priority?: number
+  type?: string
   tags?: string[]
+  body?: string
 }
 
 export async function updateTicketFile(
@@ -30,9 +32,11 @@ export async function updateTicketFile(
 
   if (update.status !== undefined) meta.status = update.status
   if (update.priority !== undefined) meta.priority = update.priority
+  if (update.type !== undefined) meta.type = update.type
   if (update.tags !== undefined) meta.tags = update.tags
 
-  const newContent = `---\n${stringifyYaml(meta).trim()}\n---\n${body}`
+  const finalBody = update.body !== undefined ? update.body : body
+  const newContent = `---\n${stringifyYaml(meta).trim()}\n---\n${finalBody}`
   await writeFile(filePath, newContent, 'utf-8')
   return true
 }

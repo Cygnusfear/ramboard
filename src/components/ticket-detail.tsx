@@ -1,26 +1,31 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
+import { ContextMenu } from '@base-ui/react/context-menu'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { useNavigate } from '@/hooks/use-navigate'
 import { getLastFilterSearch } from '@/hooks/use-filter-url-sync'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
-import { TagPill } from './tag-pill'
-import { ArrowLeft } from '@phosphor-icons/react'
-import { CopyableId } from './copyable-id'
+import { InlineSelect } from './inline-select'
+import { TagEditor } from './tag-editor'
+import { TicketBodyEditor } from './ticket-body-editor'
 import { TicketLink } from './ticket-link'
 import { TicketActivity } from './ticket-activity'
-import { useLinkifiedMarkdown } from '@/hooks/use-linkified-markdown'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { CopyableId } from './copyable-id'
+import { ArrowLeft, Copy, CircleDashed, ChartBar, CheckCircle, CaretRight } from '@phosphor-icons/react'
+import { statusOptions, priorityOptions, typeOptions } from '@/lib/ticket-options'
+import { menuItemCls, submenuTriggerCls, menuSeparatorCls, menuPopupCls, kbdCls } from './ticket-context-menu'
 
 export function TicketDetail() {
-  const { activeTicket, tickets, updateTicketStatus } = useTicketStore()
+  const {
+    activeTicket, tickets,
+    updateTicketStatus, updateTicketPriority, updateTicketType,
+    updateTicketTags, updateTicketBody,
+  } = useTicketStore()
   const { activeProjectId } = useProjectStore()
   const [, navigate] = useNavigate()
-  const markdownComponents = useLinkifiedMarkdown()
 
-  // Compute reverse relationships: other tickets that dep on or link to this one
+  // Reverse relationships: other tickets that dep on or link to this one
   const { reverseDeps, reverseLinks } = useMemo(() => {
     if (!activeTicket) return { reverseDeps: [] as string[], reverseLinks: [] as string[] }
     const rd: string[] = []
@@ -35,128 +40,256 @@ export function TicketDetail() {
     return { reverseDeps: rd, reverseLinks: rl }
   }, [activeTicket, tickets])
 
-  if (!activeTicket) return null
-
-  const goBack = () => {
+  const goBack = useCallback(() => {
     if (!activeProjectId) return
     const search = getLastFilterSearch()
     navigate(`/${activeProjectId}${search ? `?${search}` : ''}`)
-  }
+  }, [activeProjectId, navigate])
 
-  const handleStatusToggle = () => {
-    if (!activeProjectId) return
+  const handleStatusToggle = useCallback(() => {
+    if (!activeProjectId || !activeTicket) return
     const newStatus = activeTicket.status === 'closed' ? 'open' :
                       activeTicket.status === 'open' ? 'in_progress' :
                       activeTicket.status === 'in_progress' ? 'closed' : 'open'
     updateTicketStatus(activeProjectId, activeTicket.id, newStatus)
     goBack()
-  }
+  }, [activeProjectId, activeTicket, updateTicketStatus, goBack])
+
+  const handleCopyId = useCallback(() => {
+    if (activeTicket) navigator.clipboard.writeText(activeTicket.id)
+  }, [activeTicket])
+
+  if (!activeTicket) return null
+
+  const pid = activeProjectId!
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
-        <button
-          onClick={goBack}
-          className="flex items-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger render={<div className="flex flex-1 flex-col overflow-auto" />}>
 
-        <CopyableId id={activeTicket.id} className="text-sm" />
-
-        <div className="ml-auto flex items-center gap-2">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
           <button
-            onClick={handleStatusToggle}
-            className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+            onClick={goBack}
+            className="flex items-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
           >
-            {activeTicket.status === 'closed' ? 'Reopen' :
-             activeTicket.status === 'open' ? 'Start' : 'Close'}
+            <ArrowLeft size={16} />
+            Back
           </button>
+
+          <CopyableId id={activeTicket.id} className="text-sm" />
+
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={handleStatusToggle}
+              className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+            >
+              {activeTicket.status === 'closed' ? 'Reopen' :
+               activeTicket.status === 'open' ? 'Start' : 'Close'}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="mx-auto w-full max-w-3xl px-6 py-8">
-        <CopyableId id={activeTicket.id} className="mb-2 text-xs" />
-        <h1 className="mb-4 text-xl font-medium tracking-tight text-zinc-100">
-          {activeTicket.title}
-        </h1>
+        {/* Content */}
+        <div className="mx-auto w-full max-w-3xl px-6 py-8">
+          <CopyableId id={activeTicket.id} className="mb-2 text-xs" />
+          <h1 className="mb-4 text-xl font-medium tracking-tight text-zinc-100">
+            {activeTicket.title}
+          </h1>
 
-        {/* Metadata */}
-        <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
-          <StatusDot status={activeTicket.status} showLabel />
-          <PriorityIcon priority={activeTicket.priority} showLabel />
-          <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-            {activeTicket.type}
-          </span>
-          {activeTicket.created && (
-            <span className="text-xs text-zinc-500">{activeTicket.created}</span>
+          {/* Metadata — click to change */}
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+            <InlineSelect
+              options={statusOptions}
+              value={activeTicket.status}
+              onChange={(val) => updateTicketStatus(pid, activeTicket.id, val)}
+            >
+              <span className="flex items-center gap-1.5 rounded-md px-2 py-1">
+                <StatusDot status={activeTicket.status} showLabel />
+              </span>
+            </InlineSelect>
+
+            <InlineSelect
+              options={priorityOptions}
+              value={activeTicket.priority}
+              onChange={(val) => updateTicketPriority(pid, activeTicket.id, val)}
+            >
+              <span className="flex items-center gap-1.5 rounded-md px-2 py-1">
+                <PriorityIcon priority={activeTicket.priority} showLabel />
+              </span>
+            </InlineSelect>
+
+            <InlineSelect
+              options={typeOptions}
+              value={activeTicket.type}
+              onChange={(val) => updateTicketType(pid, activeTicket.id, val)}
+            >
+              <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                {activeTicket.type}
+              </span>
+            </InlineSelect>
+
+            {activeTicket.created && (
+              <span className="text-xs text-zinc-500">{activeTicket.created}</span>
+            )}
+          </div>
+
+          {/* Tags — editable */}
+          <div className="mb-4">
+            <TagEditor
+              tags={activeTicket.tags ?? []}
+              onRemove={(tag) => {
+                const next = (activeTicket.tags ?? []).filter(t => t !== tag)
+                updateTicketTags(pid, activeTicket.id, next)
+              }}
+              onAdd={(tag) => {
+                const next = [...(activeTicket.tags ?? []), tag]
+                updateTicketTags(pid, activeTicket.id, next)
+              }}
+            />
+          </div>
+
+          {/* Dependencies */}
+          {activeTicket.deps?.length > 0 && (
+            <div className="mb-6 text-sm">
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Depends on: </span>
+              {activeTicket.deps.map(dep => (
+                <TicketLink key={dep} id={dep} className="mr-2 text-xs" />
+              ))}
+            </div>
           )}
+
+          {/* Links */}
+          {activeTicket.links?.length > 0 && (
+            <div className="mb-6 text-sm">
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Linked: </span>
+              {activeTicket.links.map(linkId => (
+                <TicketLink key={linkId} id={linkId} className="mr-2 text-xs" />
+              ))}
+            </div>
+          )}
+
+          {/* Reverse deps */}
+          {reverseDeps.length > 0 && (
+            <div className="mb-6 text-sm">
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Depended on by: </span>
+              {reverseDeps.map(id => (
+                <TicketLink key={id} id={id} className="mr-2 text-xs" />
+              ))}
+            </div>
+          )}
+
+          {/* Reverse links */}
+          {reverseLinks.length > 0 && (
+            <div className="mb-6 text-sm">
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Referenced by: </span>
+              {reverseLinks.map(id => (
+                <TicketLink key={id} id={id} className="mr-2 text-xs" />
+              ))}
+            </div>
+          )}
+
+          <div className="mb-6 h-px bg-zinc-800" />
+
+          {/* Editable body */}
+          <TicketBodyEditor
+            body={activeTicket.body}
+            onSave={(md) => updateTicketBody(pid, activeTicket.id, md)}
+          />
+
+          {/* Activity timeline */}
+          <div className="mt-8">
+            <TicketActivity />
+          </div>
         </div>
 
-        {/* Tags */}
-        {activeTicket.tags?.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {activeTicket.tags.map(tag => (
-              <TagPill key={tag} tag={tag} />
-            ))}
-          </div>
-        )}
+      </ContextMenu.Trigger>
 
-        {/* Dependencies */}
-        {activeTicket.deps?.length > 0 && (
-          <div className="mb-6 text-sm">
-            <span className="text-xs uppercase tracking-wider text-zinc-500">Depends on: </span>
-            {activeTicket.deps.map(dep => (
-              <TicketLink key={dep} id={dep} className="mr-2 text-xs" />
-            ))}
-          </div>
-        )}
+      {/* Right-click context menu */}
+      <ContextMenu.Portal>
+        <ContextMenu.Positioner className="z-50 outline-none">
+          <ContextMenu.Popup className={menuPopupCls}>
+            {/* Status submenu */}
+            <ContextMenu.SubmenuRoot>
+              <ContextMenu.SubmenuTrigger className={submenuTriggerCls}>
+                <span className="flex items-center gap-2.5">
+                  <CircleDashed size={14} className="text-zinc-500" />
+                  Status
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className={kbdCls}>S</span>
+                  <CaretRight size={10} className="text-zinc-600" />
+                </span>
+              </ContextMenu.SubmenuTrigger>
+              <ContextMenu.Portal>
+                <ContextMenu.Positioner className="z-50 outline-none" sideOffset={-4} alignOffset={-4}>
+                  <ContextMenu.Popup className={menuPopupCls}>
+                    {statusOptions.map(opt => (
+                      <ContextMenu.Item
+                        key={opt.value}
+                        className={menuItemCls}
+                        onClick={() => updateTicketStatus(pid, activeTicket.id, opt.value)}
+                      >
+                        <span className="flex w-3.5 items-center justify-center">
+                          {activeTicket.status === opt.value && (
+                            <CheckCircle size={12} weight="bold" className="text-blue-400" />
+                          )}
+                        </span>
+                        {opt.icon}
+                        {opt.label}
+                      </ContextMenu.Item>
+                    ))}
+                  </ContextMenu.Popup>
+                </ContextMenu.Positioner>
+              </ContextMenu.Portal>
+            </ContextMenu.SubmenuRoot>
 
-        {/* Links */}
-        {activeTicket.links?.length > 0 && (
-          <div className="mb-6 text-sm">
-            <span className="text-xs uppercase tracking-wider text-zinc-500">Linked: </span>
-            {activeTicket.links.map(linkId => (
-              <TicketLink key={linkId} id={linkId} className="mr-2 text-xs" />
-            ))}
-          </div>
-        )}
+            {/* Priority submenu */}
+            <ContextMenu.SubmenuRoot>
+              <ContextMenu.SubmenuTrigger className={submenuTriggerCls}>
+                <span className="flex items-center gap-2.5">
+                  <ChartBar size={14} className="text-zinc-500" />
+                  Priority
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className={kbdCls}>P</span>
+                  <CaretRight size={10} className="text-zinc-600" />
+                </span>
+              </ContextMenu.SubmenuTrigger>
+              <ContextMenu.Portal>
+                <ContextMenu.Positioner className="z-50 outline-none" sideOffset={-4} alignOffset={-4}>
+                  <ContextMenu.Popup className={menuPopupCls}>
+                    {priorityOptions.map(opt => (
+                      <ContextMenu.Item
+                        key={opt.value}
+                        className={menuItemCls}
+                        onClick={() => updateTicketPriority(pid, activeTicket.id, opt.value)}
+                      >
+                        <span className="flex w-3.5 items-center justify-center">
+                          {activeTicket.priority === opt.value && (
+                            <CheckCircle size={12} weight="bold" className="text-blue-400" />
+                          )}
+                        </span>
+                        {opt.icon}
+                        {opt.label}
+                      </ContextMenu.Item>
+                    ))}
+                  </ContextMenu.Popup>
+                </ContextMenu.Positioner>
+              </ContextMenu.Portal>
+            </ContextMenu.SubmenuRoot>
 
-        {/* Reverse deps — other tickets that depend on this one */}
-        {reverseDeps.length > 0 && (
-          <div className="mb-6 text-sm">
-            <span className="text-xs uppercase tracking-wider text-zinc-500">Depended on by: </span>
-            {reverseDeps.map(id => (
-              <TicketLink key={id} id={id} className="mr-2 text-xs" />
-            ))}
-          </div>
-        )}
+            <ContextMenu.Separator className={menuSeparatorCls} />
 
-        {/* Reverse links — other tickets that link to this one */}
-        {reverseLinks.length > 0 && (
-          <div className="mb-6 text-sm">
-            <span className="text-xs uppercase tracking-wider text-zinc-500">Referenced by: </span>
-            {reverseLinks.map(id => (
-              <TicketLink key={id} id={id} className="mr-2 text-xs" />
-            ))}
-          </div>
-        )}
-
-        <div className="mb-6 h-px bg-zinc-800" />
-
-        {/* Markdown body */}
-        <article className="prose prose-invert prose-sm max-w-none prose-headings:font-medium prose-headings:tracking-tight prose-h2:text-base prose-h3:text-sm prose-p:text-zinc-300 prose-p:leading-relaxed prose-a:text-blue-400 prose-code:rounded prose-code:bg-zinc-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800 prose-li:text-zinc-300 prose-strong:text-zinc-200">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {activeTicket.body}
-          </ReactMarkdown>
-        </article>
-
-        {/* Activity timeline */}
-        <TicketActivity />
-      </div>
-    </div>
+            {/* Copy ID */}
+            <ContextMenu.Item className={menuItemCls} onClick={handleCopyId}>
+              <Copy size={14} className="text-zinc-500" />
+              Copy ID
+              <span className={kbdCls}>C</span>
+            </ContextMenu.Item>
+          </ContextMenu.Popup>
+        </ContextMenu.Positioner>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }

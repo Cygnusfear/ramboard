@@ -1,44 +1,28 @@
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import {
-  Circle, CircleHalf, CheckCircle,
-  ArrowUp, ArrowDown, Minus, ArrowFatDown,
   Copy, ArrowSquareOut, CaretRight,
-  CircleDashed, ChartBar, Tag, DotsThree,
+  CircleDashed, ChartBar, Tag, DotsThree, CheckCircle,
 } from '@phosphor-icons/react'
 import type { TicketSummary } from '@/lib/types'
+import { statusOptions, priorityOptions } from '@/lib/ticket-options'
 
 // ── Shared styles ─────────────────────────────────────────────
 
-const itemCls =
+export const menuItemCls =
   'flex cursor-default items-center gap-2.5 py-1.5 pr-3 pl-3 text-[13px] leading-4 text-zinc-300 outline-none select-none ' +
   'data-[highlighted]:bg-zinc-800 data-[highlighted]:text-zinc-100'
 
-const submenuTriggerCls =
-  `${itemCls} justify-between`
+export const submenuTriggerCls =
+  `${menuItemCls} justify-between`
 
-const separatorCls = 'mx-2 my-1 h-px bg-zinc-800'
+export const menuSeparatorCls = 'mx-2 my-1 h-px bg-zinc-800'
 
-const popupCls =
+export const menuPopupCls =
   'min-w-[180px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80 ' +
   'origin-[var(--transform-origin)] transition-opacity data-[ending-style]:opacity-0'
 
-const kbdCls = 'ml-auto pl-4 font-mono text-[11px] text-zinc-600'
-
-// ── Status & priority options ─────────────────────────────────
-
-const statusOptions = [
-  { value: 'open', label: 'Open', icon: <Circle size={14} weight="bold" className="text-emerald-400" />, key: '1' },
-  { value: 'in_progress', label: 'In Progress', icon: <CircleHalf size={14} weight="bold" className="text-amber-400" />, key: '2' },
-  { value: 'closed', label: 'Closed', icon: <CheckCircle size={14} weight="bold" className="text-zinc-400" />, key: '3' },
-]
-
-const priorityOptions = [
-  { value: 0, label: 'Urgent', icon: <ArrowFatDown size={14} weight="fill" className="rotate-180 text-red-400" />, key: '1' },
-  { value: 1, label: 'High', icon: <ArrowUp size={14} weight="bold" className="text-orange-400" />, key: '2' },
-  { value: 2, label: 'Medium', icon: <Minus size={14} className="text-zinc-400" />, key: '3' },
-  { value: 3, label: 'Low', icon: <ArrowDown size={14} weight="bold" className="text-blue-400" />, key: '4' },
-]
+export const kbdCls = 'ml-auto pl-4 font-mono text-[11px] text-zinc-600'
 
 // ── Shared menu actions interface ─────────────────────────────
 
@@ -73,12 +57,12 @@ function MenuContent({
       {/* Open ticket (single only) */}
       {single && (
         <>
-          <NS.Item className={itemCls} onClick={() => actions.onOpen(single.id)}>
+          <NS.Item className={menuItemCls} onClick={() => actions.onOpen(single.id)}>
             <ArrowSquareOut size={14} className="text-zinc-500" />
             Open ticket
             <span className={kbdCls}>Enter</span>
           </NS.Item>
-          <NS.Separator className={separatorCls} />
+          <NS.Separator className={menuSeparatorCls} />
         </>
       )}
 
@@ -96,11 +80,11 @@ function MenuContent({
         </NS.SubmenuTrigger>
         <NS.Portal>
           <NS.Positioner className="z-50 outline-none" sideOffset={-4} alignOffset={-4}>
-            <NS.Popup className={popupCls}>
+            <NS.Popup className={menuPopupCls}>
               {statusOptions.map(opt => (
                 <NS.Item
                   key={opt.value}
-                  className={itemCls}
+                  className={menuItemCls}
                   onClick={() => actions.onSetStatus(ids, opt.value)}
                 >
                   <span className="flex w-3.5 items-center justify-center">
@@ -108,7 +92,6 @@ function MenuContent({
                   </span>
                   {opt.icon}
                   {opt.label}
-                  <span className={kbdCls}>{opt.key}</span>
                 </NS.Item>
               ))}
             </NS.Popup>
@@ -130,11 +113,11 @@ function MenuContent({
         </NS.SubmenuTrigger>
         <NS.Portal>
           <NS.Positioner className="z-50 outline-none" sideOffset={-4} alignOffset={-4}>
-            <NS.Popup className={popupCls}>
+            <NS.Popup className={menuPopupCls}>
               {priorityOptions.map(opt => (
                 <NS.Item
                   key={opt.value}
-                  className={itemCls}
+                  className={menuItemCls}
                   onClick={() => actions.onSetPriority(ids, opt.value)}
                 >
                   <span className="flex w-3.5 items-center justify-center">
@@ -142,7 +125,6 @@ function MenuContent({
                   </span>
                   {opt.icon}
                   {opt.label}
-                  <span className={kbdCls}>{opt.key}</span>
                 </NS.Item>
               ))}
             </NS.Popup>
@@ -164,17 +146,17 @@ function MenuContent({
         </NS.SubmenuTrigger>
         <NS.Portal>
           <NS.Positioner className="z-50 outline-none" sideOffset={-4} alignOffset={-4}>
-            <NS.Popup className={popupCls}>
+            <NS.Popup className={menuPopupCls}>
               <div className="px-3 py-2 text-xs text-zinc-500">Coming soon</div>
             </NS.Popup>
           </NS.Positioner>
         </NS.Portal>
       </NS.SubmenuRoot>
 
-      <NS.Separator className={separatorCls} />
+      <NS.Separator className={menuSeparatorCls} />
 
       {/* Copy ID */}
-      <NS.Item className={itemCls} onClick={() => actions.onCopyId(ids)}>
+      <NS.Item className={menuItemCls} onClick={() => actions.onCopyId(ids)}>
         <Copy size={14} className="text-zinc-500" />
         {count > 1 ? `Copy ${count} IDs` : 'Copy ID'}
         <span className={kbdCls}>C</span>
@@ -202,7 +184,7 @@ export function TicketContextMenu({
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Positioner className="z-50 outline-none">
-          <ContextMenu.Popup className={popupCls}>
+          <ContextMenu.Popup className={menuPopupCls}>
             <MenuContent tickets={targetTickets} actions={actions} NS={ContextMenu} />
           </ContextMenu.Popup>
         </ContextMenu.Positioner>
@@ -228,7 +210,7 @@ export function DotMenu({ ticket, ...actions }: DotMenuProps) {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner className="z-50 outline-none" sideOffset={4}>
-          <Menu.Popup className={popupCls}>
+          <Menu.Popup className={menuPopupCls}>
             <MenuContent tickets={[ticket]} actions={actions} NS={Menu} />
           </Menu.Popup>
         </Menu.Positioner>
