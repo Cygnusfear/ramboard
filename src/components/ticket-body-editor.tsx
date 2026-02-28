@@ -14,23 +14,16 @@ import {
 } from '@phosphor-icons/react'
 import { markdownToHtml, htmlToMarkdown } from '@/lib/markdown'
 import { SlashCommandExtension } from './slash-command'
+import { ticketLinkPlugin } from './ticket-link-plugin'
+import { useNavigate } from '@/hooks/use-navigate'
+import { useProjectStore } from '@/stores/project-store'
+import { useKnownTicketIds } from '@/hooks/use-known-ticket-ids'
 
 // ── Styles ────────────────────────────────────────────────────
 
 const toolbarBtnCls =
   'flex size-7 items-center justify-center rounded text-zinc-400 transition-colors ' +
   'hover:bg-zinc-700 hover:text-zinc-200 data-[active=true]:bg-zinc-700 data-[active=true]:text-blue-400'
-
-const proseClasses =
-  'prose prose-invert prose-sm max-w-none ' +
-  'prose-headings:font-medium prose-headings:tracking-tight ' +
-  'prose-h1:text-lg prose-h2:text-base prose-h3:text-sm ' +
-  'prose-p:text-zinc-300 prose-p:leading-relaxed ' +
-  'prose-a:text-blue-400 ' +
-  'prose-code:rounded prose-code:bg-zinc-800 prose-code:px-1.5 prose-code:py-0.5 ' +
-  'prose-code:font-mono prose-code:text-xs prose-code:before:content-none prose-code:after:content-none ' +
-  'prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800 ' +
-  'prose-li:text-zinc-300 prose-strong:text-zinc-200'
 
 // ── Component ─────────────────────────────────────────────────
 
@@ -42,6 +35,9 @@ interface TicketBodyEditorProps {
 export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedRef = useRef(body)
+  const [, navigate] = useNavigate()
+  const { activeProjectId } = useProjectStore()
+  const knownIds = useKnownTicketIds()
 
   const save = useCallback((html: string) => {
     const md = htmlToMarkdown(html)
@@ -51,11 +47,23 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
     }
   }, [onSave])
 
-  // Debounced auto-save on content change
   const debouncedSave = useCallback((html: string) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => save(html), 1500)
   }, [save])
+
+  // Handle link clicks: Cmd+click opens links, plain ticket IDs navigate
+  const handleLinkClick = useCallback((href: string, event: MouseEvent) => {
+    // Check if it's a ticket ID link
+    const ticketMatch = href.match(/\/ticket\/([a-z0-9]+-[a-z0-9]+)$/)
+    if (ticketMatch && activeProjectId) {
+      event.preventDefault()
+      navigate(`/${activeProjectId}/ticket/${ticketMatch[1]}`)
+      return
+    }
+    // External links — open in new tab
+    window.open(href, '_blank', 'noopener')
+  }, [navigate, activeProjectId])
 
   const editor = useEditor({
     extensions: [
@@ -69,8 +77,11 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
       TaskList,
       TaskItem.configure({ nested: true }),
       Link.configure({
-        openOnClick: true,
-        HTMLAttributes: { class: 'text-blue-400 underline' },
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'ticket-editor-link',
+          rel: 'noopener noreferrer',
+        },
       }),
       Placeholder.configure({
         placeholder: 'Add a description…',
@@ -78,21 +89,66 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
       Typography,
       SlashCommandExtension,
     ],
-    content: markdownToHtml(body),
+    content: markdownToHtml(body, knownIds),
     editorProps: {
       attributes: {
-        class: `${proseClasses} outline-none min-h-[2rem] focus:outline-none cursor-text`,
+        class: 'ticket-editor-body',
+      },
+      // Cmd+click to open links
+      handleClick: (view, _pos, event) => {
+        if (!event.metaKey && !event.ctrlKey) return false
+
+        const target = event.target as HTMLElement
+        const link = target.closest('a')
+        if (!link) return false
+
+        const href = link.getAttribute('href')
+        if (!href) return false
+
+        event.preventDefault()
+        handleLinkClick(href, event)
+        return true
+      },
+      // Also handle click on ticket-id decorations
+      handleDOMEvents: {
+        click: (view, event) => {
+          const target = event.target as HTMLElement
+          if (target.classList.contains('ticket-id-link')) {
+            const ticketId = target.getAttribute('data-ticket-id')
+            if (ticketId && activeProjectId) {
+              // Without modifier: navigate (these are read-only decorations, not editable)
+              event.preventDefault()
+              navigate(`/${activeProjectId}/ticket/${ticketId}`)
+              return true
+            }
+          }
+          return false
+        },
       },
     },
     onUpdate: ({ editor }) => {
       debouncedSave(editor.getHTML())
     },
     onBlur: ({ editor }) => {
-      // Flush immediately on blur
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       save(editor.getHTML())
     },
   })
+
+  // Register ticket ID decoration plugin
+  useEffect(() => {
+    if (editor && knownIds.size > 0) {
+      const plugin = ticketLinkPlugin(knownIds)
+      // Only add if not already registered
+      const pluginKey = (plugin.spec as any).key
+      const existing = editor.view.state.plugins.find(
+        p => (p.spec as any).key === pluginKey
+      )
+      if (!existing) {
+        editor.registerPlugin(plugin)
+      }
+    }
+  }, [editor, knownIds])
 
   // Cmd+S to force save
   useEffect(() => {
@@ -120,7 +176,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
 
   return (
     <>
-      {/* Floating toolbar — only shows on text selection */}
       <BubbleMenu
         editor={editor}
         className="flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-800 p-1 shadow-xl shadow-zinc-950/80"
@@ -171,7 +226,6 @@ export function TicketBodyEditor({ body, onSave }: TicketBodyEditorProps) {
         </button>
       </BubbleMenu>
 
-      {/* Editor content — always visible, always editable, no wrapper chrome */}
       <EditorContent editor={editor} />
     </>
   )

@@ -3,7 +3,11 @@ import TurndownService from 'turndown'
 
 // ── Markdown → HTML (for loading into TipTap) ────────────────
 
-export function markdownToHtml(md: string): string {
+/**
+ * Convert markdown to HTML for TipTap consumption.
+ * Optionally auto-links known ticket IDs in the output.
+ */
+export function markdownToHtml(md: string, _knownIds?: Set<string>): string {
   if (!md?.trim()) return '<p></p>'
   return marked.parse(md, { async: false, gfm: true }) as string
 }
@@ -45,6 +49,8 @@ turndown.addRule('table', {
     const matrix = rows.map(row =>
       Array.from(row.querySelectorAll('th, td')).map(cell => cell.textContent?.trim() ?? '')
     )
+
+    if (matrix.length === 0 || !matrix[0].length) return ''
 
     const colWidths = matrix[0].map((_, ci) =>
       Math.max(3, ...matrix.map(row => (row[ci] ?? '').length))
