@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { useViewStore } from '@/stores/view-store'
@@ -12,6 +12,10 @@ export function useProjectViewSetup(projectId: string | null, viewId: string | n
 
   const activeView = views.find(v => v.id === activeViewId)
   const viewMode = activeView?.mode ?? 'list'
+
+  // Track which viewId we last loaded filters for — prevents resetting
+  // filter state when remounting with the same view (e.g. back from ticket detail)
+  const lastLoadedViewId = useRef<string | null>(null)
 
   // Subscribe to filter changes → mark active view dirty so it can be saved
   useEffect(() => {
@@ -43,13 +47,16 @@ export function useProjectViewSetup(projectId: string | null, viewId: string | n
     }
   }, [viewId, views, activeViewId, setActiveView])
 
-  // When active view changes, load its saved filters + groupBy into filter store
+  // When active view CHANGES, load its saved filters + groupBy into filter store.
+  // Skip if we already loaded this view (e.g. remount after back-navigation).
   useEffect(() => {
+    if (!activeViewId || activeViewId === lastLoadedViewId.current) return
     if (activeView?.mode === 'list' && activeView.list) {
       const { filters, sortField, sortDir, groupBy } = activeView.list
       useFilterStore.setState({ filters, sortField, sortDir, groupBy: groupBy ?? null })
       useViewStore.getState().markClean()
     }
+    lastLoadedViewId.current = activeViewId
   }, [activeViewId, activeView])
 
   return { loading, viewMode }
