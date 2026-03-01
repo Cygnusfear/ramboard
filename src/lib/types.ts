@@ -20,8 +20,6 @@ export interface Ticket extends TicketSummary {
 export interface ProjectSummary {
   id: string
   name: string
-  counts: { open: number; in_progress: number; closed: number; cancelled: number }
-  total: number
 }
 
 export type ViewMode = 'list' | 'board' | 'graph'

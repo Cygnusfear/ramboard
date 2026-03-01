@@ -27,20 +27,21 @@ export async function parseTicketsDir(ticketsPath: string, projectId: string): P
   }
 
   const mdFiles = files.filter(f => f.endsWith('.md'))
-  const tickets: Ticket[] = []
 
-  for (const file of mdFiles) {
-    try {
-      const filePath = join(ticketsPath, file)
-      const [content, fileStat] = await Promise.all([readFile(filePath, 'utf-8'), stat(filePath)])
-      const ticket = parseTicket(content, projectId, fileStat.mtime)
-      if (ticket) tickets.push(ticket)
-    } catch (e) {
-      console.warn(`[ticket-parser] skipping ${file}: ${e}`)
-    }
-  }
+  const results = await Promise.all(
+    mdFiles.map(async (file) => {
+      try {
+        const filePath = join(ticketsPath, file)
+        const [content, fileStat] = await Promise.all([readFile(filePath, 'utf-8'), stat(filePath)])
+        return parseTicket(content, projectId, fileStat.mtime)
+      } catch (e) {
+        console.warn(`[ticket-parser] skipping ${file}: ${e}`)
+        return null
+      }
+    })
+  )
 
-  return tickets
+  return results.filter((t): t is Ticket => t !== null)
 }
 
 /** Normalize a YAML list field — handles null, string, comma-separated string, or array */

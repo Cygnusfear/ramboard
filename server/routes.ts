@@ -26,20 +26,10 @@ export async function handleApi(req: Request): Promise<Response | null> {
 
   // ── Project management ────────────────────────────────────
 
-  // GET /api/projects
+  // GET /api/projects — lightweight, no ticket parsing
   if (method === 'GET' && path === '/api/projects') {
     const { projects } = readConfig()
-    const result = await Promise.all(
-      projects.map(async (p) => {
-        const tickets = await parseTicketsDir(ticketsPath(p.path), p.id)
-        const counts: Record<string, number> = { open: 0, in_progress: 0, closed: 0, cancelled: 0 }
-        for (const t of tickets) {
-          counts[t.status] = (counts[t.status] ?? 0) + 1
-        }
-        return { id: p.id, name: p.name, path: p.path, counts, total: tickets.length }
-      })
-    )
-    return json(result)
+    return json(projects.map(p => ({ id: p.id, name: p.name })))
   }
 
   // POST /api/projects — add a project { path: "/abs/path" }
