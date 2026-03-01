@@ -110,12 +110,12 @@ function groupByField(
  * Walks deps + links upward with BFS. Cycle-safe.
  */
 export function buildAncestryMap(tickets: TicketSummary[]): Map<string, Set<string>> {
-  const byId = new Set(tickets.map(t => t.id))
+  const idSet = new Set(tickets.map(t => t.id))
 
-  // child → direct parents (only those in the visible set)
-  const parentIds = new Map<string, string[]>()
+  // child → direct parents (only those in the ticket set)
+  const parentIds = new Map<string, readonly string[]>()
   for (const t of tickets) {
-    const parents = [...t.deps, ...t.links].filter(id => byId.has(id))
+    const parents = [...t.deps, ...t.links].filter(id => idSet.has(id))
     if (parents.length > 0) parentIds.set(t.id, parents)
   }
 
@@ -126,17 +126,20 @@ export function buildAncestryMap(tickets: TicketSummary[]): Map<string, Set<stri
 
     const ancestors = new Set<string>()
     const visited = new Set<string>()
-    const queue = parentIds.get(id) ?? []
+    // Copy into a mutable queue — never mutate parentIds entries
+    const queue = [...(parentIds.get(id) ?? [])]
     visited.add(id)
 
-    for (const pid of queue) {
+    while (queue.length > 0) {
+      const pid = queue.shift()!
       if (visited.has(pid)) continue
       visited.add(pid)
       ancestors.add(pid)
-      // Recurse through their parents too
-      const grandparents = parentIds.get(pid) ?? []
-      for (const gp of grandparents) {
-        if (!visited.has(gp)) queue.push(gp)
+      const grandparents = parentIds.get(pid)
+      if (grandparents) {
+        for (const gp of grandparents) {
+          if (!visited.has(gp)) queue.push(gp)
+        }
       }
     }
 
