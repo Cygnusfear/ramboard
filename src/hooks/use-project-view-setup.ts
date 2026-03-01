@@ -3,6 +3,7 @@ import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { useViewStore } from '@/stores/view-store'
 import { useFilterStore } from '@/stores/filter-store'
+import { hasUrlFilterParams } from '@/hooks/use-filter-url-sync'
 
 /** Core project view — handles data loading + view resolution */
 export function useProjectViewSetup(projectId: string | null, viewId: string | null) {
@@ -49,8 +50,15 @@ export function useProjectViewSetup(projectId: string | null, viewId: string | n
 
   // When active view CHANGES, load its saved filters + groupBy into filter store.
   // Skip if we already loaded this view (e.g. remount after back-navigation).
+  // Skip if URL has filter params (URL takes priority — shareable links).
   useEffect(() => {
     if (!activeViewId || activeViewId === lastLoadedViewId.current) return
+    if (hasUrlFilterParams()) {
+      // URL params are authoritative — useFilterUrlSync will handle them
+      useViewStore.getState().markClean()
+      lastLoadedViewId.current = activeViewId
+      return
+    }
     if (activeView?.mode === 'list' && activeView.list) {
       const { filters, sortField, sortDir, groupBy } = activeView.list
       useFilterStore.setState({ filters, sortField, sortDir, groupBy: groupBy ?? null })

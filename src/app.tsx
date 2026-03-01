@@ -3,6 +3,7 @@ import { Route, Switch, Redirect, useRoute } from 'wouter'
 import { useProjectStore } from '@/stores/project-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useKeyboard } from '@/hooks/use-keyboard'
+import { useFilterUrlSync } from '@/hooks/use-filter-url-sync'
 import { useProjectViewSetup } from '@/hooks/use-project-view-setup'
 import { ProjectRail } from '@/components/project-rail'
 import { HeaderBar } from '@/components/header-bar'
@@ -78,6 +79,7 @@ export function App() {
   const { fetchProjects } = useProjectStore()
 
   useKeyboard()
+  useFilterUrlSync()
 
   useEffect(() => {
     fetchProjects()
