@@ -156,6 +156,8 @@ export function ListView() {
   const tickets = useFilteredTickets();
   const highlightIndex = useUIStore((s) => s.highlightIndex);
   const setHighlightIndex = useUIStore((s) => s.setHighlightIndex);
+  // Subscribe to selection at the ListView level — passed down to rows
+  const selectedIds = useUIStore((s) => s.selectedIds);
   const { activeProjectId } = useProjectStore();
   const { updateTicketStatus } = useTicketStore();
   const [, navigate] = useNavigate();
@@ -172,8 +174,8 @@ export function ListView() {
   activeProjectRef.current = activeProjectId;
 
   // State machine — created once, reads deps through refs
+  // viewState now only holds contextTargets — selection lives in UIStore
   const [viewState, setViewState] = useState<ListViewState>({
-    selection: new Set(),
     contextTargets: [],
   });
 
@@ -190,14 +192,14 @@ export function ListView() {
         if (pid) updateStatusRef.current(pid, ticketId, status);
       },
       onChange: setViewState,
+      // Selection callbacks — UIStore is the single source of truth
+      getSelection: () => useUIStore.getState().selectedIds,
+      setSelection: (sel) => useUIStore.setState({ selectedIds: sel }),
+      getSelectionAnchor: () => useUIStore.getState().selectionAnchor,
+      setSelectionAnchor: (id) => useUIStore.setState({ selectionAnchor: id }),
     });
   }
   const engine = engineRef.current;
-
-  // Sync selection to UI store (for bulk action bar)
-  useEffect(() => {
-    useUIStore.setState({ selectedIds: viewState.selection });
-  }, [viewState.selection]);
 
   // Scroll suppression for highlight
   const isScrolling = useRef(false);
@@ -323,7 +325,6 @@ export function ListView() {
   }, [highlightIndex, virtualizer]);
 
   const virtualItems = virtualizer.getVirtualItems();
-  const { selection } = viewState;
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden select-none">
@@ -338,9 +339,9 @@ export function ListView() {
       </div>
 
       {/* Selection info bar */}
-      {selection.size > 0 && (
+      {selectedIds.size > 0 && (
         <div className="absolute top-full left-0 w-full flex items-center gap-3 border-b border-blue-500/20 bg-blue-500/[0.05] px-4 py-1">
-          <span className="text-xs font-medium text-blue-400">{selection.size} selected</span>
+          <span className="text-xs font-medium text-blue-400">{selectedIds.size} selected</span>
           <button
             onClick={() => engine.clear()}
             className="text-[11px] text-zinc-500 hover:text-zinc-300"
@@ -383,8 +384,7 @@ export function ListView() {
                       ticket={ticket}
                       index={vrow.index}
                       isHighlighted={vrow.index === highlightIndex}
-                      isSelected={selection.has(ticket.id)}
-
+                      isSelected={selectedIds.has(ticket.id)}
                     />
                   </div>
                 );

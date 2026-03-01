@@ -9,6 +9,9 @@
  * The React component creates one instance via useRef, wires up
  * event handlers that call machine methods, and subscribes to
  * onChange for re-renders. That's it.
+ *
+ * Selection is NOT owned by this engine — it reads/writes through
+ * callbacks so UIStore remains the single source of truth.
  */
 
 import type { TicketSummary } from './types'
@@ -17,8 +20,6 @@ import { STATUS_CYCLE } from './types'
 // ── Public state (what React reads) ───────────────────────────
 
 export interface ListViewState {
-  /** Selected ticket IDs — stable across filter/sort */
-  selection: Set<string>
   /** Tickets targeted by the context menu */
   contextTargets: TicketSummary[]
 }
@@ -34,6 +35,14 @@ export interface ListInteractionDeps {
   cycleStatus: (ticketId: string, newStatus: string) => void
   /** Called whenever viewable state changes — React calls setState here */
   onChange: (state: ListViewState) => void
+  /** Read current selection from UIStore (canonical source) */
+  getSelection: () => Set<string>
+  /** Write selection to UIStore (canonical source) */
+  setSelection: (sel: Set<string>) => void
+  /** Read selection anchor from UIStore (used by keyboard X range-select) */
+  getSelectionAnchor: () => string | null
+  /** Write selection anchor to UIStore */
+  setSelectionAnchor: (id: string | null) => void
 }
 
 const DRAG_THRESHOLD = 4
@@ -41,7 +50,6 @@ const DRAG_THRESHOLD = 4
 export function createListInteraction(deps: ListInteractionDeps) {
   // ── Internal mutable state ────────────────────────────────
 
-  let selection = new Set<string>()
   let contextTargets: TicketSummary[] = []
 
   // Drag engine (index-based for range math, converted to IDs on commit)
@@ -56,7 +64,7 @@ export function createListInteraction(deps: ListInteractionDeps) {
   // ── Helpers ───────────────────────────────────────────────
 
   function snapshot(): ListViewState {
-    return { selection, contextTargets }
+    return { contextTargets }
   }
 
   function notify() {
@@ -82,7 +90,7 @@ export function createListInteraction(deps: ListInteractionDeps) {
   function commitDragRange() {
     const range = idsInRange(anchorIndex, currentIndex)
     for (const id of baseSelection) range.add(id)
-    selection = range
+    deps.setSelection(range)
   }
 
   // ── Public methods ────────────────────────────────────────
@@ -100,12 +108,14 @@ export function createListInteraction(deps: ListInteractionDeps) {
 
     // Checkbox — toggle single item
     if (action === 'checkbox') {
-      const next = new Set(selection)
+      const sel = deps.getSelection()
+      const next = new Set(sel)
       if (next.has(ticket.id)) next.delete(ticket.id)
       else next.add(ticket.id)
       anchorIndex = index
       baseSelection = next
-      selection = next
+      deps.setSelection(next)
+      deps.setSelectionAnchor(ticket.id)
       notify()
       return 'stop'
     }
@@ -118,12 +128,14 @@ export function createListInteraction(deps: ListInteractionDeps) {
 
     // Cmd/Ctrl+click — toggle
     if (mods.meta) {
-      const next = new Set(selection)
+      const sel = deps.getSelection()
+      const next = new Set(sel)
       if (next.has(ticket.id)) next.delete(ticket.id)
       else next.add(ticket.id)
       anchorIndex = index
       baseSelection = next
-      selection = next
+      deps.setSelection(next)
+      deps.setSelectionAnchor(ticket.id)
       notify()
       return 'prevent'
     }
@@ -165,15 +177,17 @@ export function createListInteraction(deps: ListInteractionDeps) {
     // Modifier clicks — already handled in mousedown
     if (mods.shift || mods.meta) return
 
+    const sel = deps.getSelection()
+
     // Plain click with no selection → navigate
-    if (!dragging && selection.size === 0) {
+    if (!dragging && sel.size === 0) {
       pendingDrag = null
       deps.navigate(ticket.id)
       return
     }
 
     // Plain click with active selection → clear
-    if (selection.size > 0 && !dragging) {
+    if (sel.size > 0 && !dragging) {
       clear()
     }
   }
@@ -200,7 +214,7 @@ export function createListInteraction(deps: ListInteractionDeps) {
         currentIndex = pendingDrag.index
         const ticket = ticketAt(pendingDrag.index)
         baseSelection = new Set()
-        selection = ticket ? new Set([ticket.id]) : new Set()
+        deps.setSelection(ticket ? new Set([ticket.id]) : new Set())
         pendingDrag = null
         notify()
       }
@@ -221,7 +235,7 @@ export function createListInteraction(deps: ListInteractionDeps) {
     pendingDrag = null
     if (dragging) {
       dragging = false
-      baseSelection = new Set(selection)
+      baseSelection = new Set(deps.getSelection())
       notify()
     }
   }
@@ -231,6 +245,8 @@ export function createListInteraction(deps: ListInteractionDeps) {
     const ticket = ticketAt(index)
     if (!ticket) return
 
+    const selection = deps.getSelection()
+
     if (selection.has(ticket.id)) {
       // Right-clicked a selected row → menu applies to all selected
       contextTargets = deps.getTickets().filter(t => selection.has(t.id))
@@ -238,7 +254,8 @@ export function createListInteraction(deps: ListInteractionDeps) {
       // Right-clicked a non-selected row → select just this one
       anchorIndex = index
       baseSelection = new Set([ticket.id])
-      selection = new Set([ticket.id])
+      deps.setSelection(new Set([ticket.id]))
+      deps.setSelectionAnchor(ticket.id)
       contextTargets = [ticket]
     }
     notify()
@@ -246,14 +263,13 @@ export function createListInteraction(deps: ListInteractionDeps) {
 
   /** Escape key — clear selection */
   function escape() {
-    if (selection.size > 0) clear()
+    if (deps.getSelection().size > 0) clear()
   }
 
   /** Cmd+A — select all visible tickets */
   function selectAll() {
     const tickets = deps.getTickets()
-    selection = new Set(tickets.map(t => t.id))
-    notify()
+    deps.setSelection(new Set(tickets.map(t => t.id)))
   }
 
   /** Clear all selection and drag state */
@@ -262,7 +278,8 @@ export function createListInteraction(deps: ListInteractionDeps) {
     anchorIndex = -1
     currentIndex = -1
     baseSelection = new Set()
-    selection = new Set()
+    deps.setSelection(new Set())
+    deps.setSelectionAnchor(null)
     contextTargets = []
     notify()
   }
