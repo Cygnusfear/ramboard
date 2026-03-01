@@ -1,5 +1,6 @@
 import { Popover } from '@base-ui/react/popover'
 import { useFilterStore } from '@/stores/filter-store'
+import type { GroupField } from '@/lib/group-engine'
 import {
   type FilterField,
   type FilterClause,
@@ -7,7 +8,7 @@ import {
   FIELD_LABELS,
   OPERATOR_LABELS,
 } from '@/lib/filter-engine'
-import { Plus, X, MagnifyingGlass, FunnelSimple } from '@phosphor-icons/react'
+import { Plus, X, MagnifyingGlass, FunnelSimple, Rows, Check } from '@phosphor-icons/react'
 import { FilterEditor, formatFilterValue } from './filter-primitives'
 
 // ── Filter chip (shows one active filter) ─────────────────────
@@ -77,6 +78,52 @@ function AddFilterButton() {
   )
 }
 
+// ── Group-by selector ─────────────────────────────────────────
+
+const GROUP_OPTIONS: { value: GroupField | null; label: string }[] = [
+  { value: null, label: 'None' },
+  { value: 'status', label: 'Status' },
+  { value: 'type', label: 'Type' },
+  { value: 'epic', label: 'Epic' },
+]
+
+function GroupByButton() {
+  const { groupBy, setGroupBy } = useFilterStore()
+  const active = GROUP_OPTIONS.find(o => o.value === groupBy)
+
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+          groupBy
+            ? 'border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:border-zinc-600'
+            : 'border-dashed border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+        } data-[popup-open]:border-zinc-500`}
+      >
+        <Rows size={12} />
+        {groupBy ? `Group: ${active?.label}` : 'Group'}
+      </Popover.Trigger>
+
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={8}>
+          <Popover.Popup className="min-w-[140px] origin-[var(--transform-origin)] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl outline-none transition-[transform,opacity] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+            {GROUP_OPTIONS.map(opt => (
+              <Popover.Close
+                key={opt.label}
+                onClick={() => setGroupBy(opt.value)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
+              >
+                {opt.label}
+                {groupBy === opt.value && <Check size={12} className="ml-auto text-blue-400" />}
+              </Popover.Close>
+            ))}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
 // ── Main filter bar ───────────────────────────────────────────
 
 export function FilterBar() {
@@ -112,6 +159,11 @@ export function FilterBar() {
 
       {/* Add filter */}
       <AddFilterButton />
+
+      <div className="h-4 w-px bg-zinc-800" />
+
+      {/* Group by */}
+      <GroupByButton />
 
       {/* Clear all */}
       {hasFilters && (

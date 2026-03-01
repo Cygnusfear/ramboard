@@ -19,14 +19,14 @@ function SaveAsDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
   const [name, setName] = useState('')
   const { saveView } = useViewStore()
   const { activeProjectId } = useProjectStore()
-  const { filters, sortField, sortDir } = useFilterStore()
+  const { filters, sortField, sortDir, groupBy } = useFilterStore()
 
   const handleSave = async () => {
     if (!activeProjectId || !name.trim()) return
     const saved = await saveView(activeProjectId, {
       name: name.trim(),
       mode: 'list',
-      list: { id: crypto.randomUUID().slice(0, 8), name: name.trim(), filters, sortField, sortDir },
+      list: { id: crypto.randomUUID().slice(0, 8), name: name.trim(), filters, sortField, sortDir, groupBy: groupBy ?? undefined },
     })
     setName('')
     onClose()
@@ -106,11 +106,11 @@ export function HeaderBar() {
 
   const handleSave = useCallback(async () => {
     if (!activeProjectId || !activeView) return
-    const { filters, sortField, sortDir } = useFilterStore.getState()
+    const { filters, sortField, sortDir, groupBy } = useFilterStore.getState()
     await saveView(activeProjectId, {
       ...activeView,
       list: activeView.mode === 'list'
-        ? { ...activeView.list!, filters, sortField, sortDir }
+        ? { ...activeView.list!, filters, sortField, sortDir, groupBy: groupBy ?? undefined }
         : activeView.list,
     })
   }, [activeProjectId, activeView, saveView])

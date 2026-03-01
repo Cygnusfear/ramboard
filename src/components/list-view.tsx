@@ -4,14 +4,25 @@ import {
   type ListInteraction,
   type ListViewState,
 } from "@/lib/list-interaction";
+import {
+  groupTickets,
+  flattenGroups,
+  type FlatRow,
+} from "@/lib/group-engine";
 import type { SortField, TicketSummary } from "@/lib/types";
 import { useFilterStore } from "@/stores/filter-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useTicketStore } from "@/stores/ticket-store";
 import { useUIStore } from "@/stores/ui-store";
-import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
+import { useViewStore } from "@/stores/view-store";
+import {
+  CaretDown,
+  CaretRight,
+  CaretUp,
+  Check,
+} from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LinkifiedText } from "./linkified-text";
 import { PriorityIcon } from "./priority-icon";
 import { StatusDot } from "./status-dot";
@@ -22,6 +33,7 @@ import { useNavigate } from "@/hooks/use-navigate";
 // ── Constants ─────────────────────────────────────────────────
 
 const ROW_HEIGHT = 36;
+const GROUP_HEADER_HEIGHT = 32;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -69,7 +81,67 @@ function SortHeader({
   );
 }
 
-// ── Single row — memoized ─────────────────────────────────────
+// ── Group header row ──────────────────────────────────────────
+
+const GroupHeaderRow = memo(function GroupHeaderRow({
+  group,
+  collapsed,
+  onToggle,
+  onClickEpic,
+}: {
+  group: FlatRow & { type: "group-header" };
+  collapsed: boolean;
+  onToggle: () => void;
+  onClickEpic?: (ticketId: string) => void;
+}) {
+  const { group: g } = group;
+  const Chevron = collapsed ? CaretRight : CaretDown;
+
+  // Epic group header — shows the epic ticket as a mini-row
+  if (g.epic) {
+    return (
+      <div
+        className="flex h-8 w-full cursor-pointer items-center gap-2 border-b border-zinc-800/60 bg-zinc-900/60 px-2"
+        onClick={onToggle}
+      >
+        <Chevron size={12} weight="bold" className="shrink-0 text-zinc-500" />
+        <StatusDot status={g.epic.status} />
+        <span className="shrink-0 font-mono text-[11px] text-zinc-600">{g.epic.id}</span>
+        <span
+          className="min-w-0 truncate text-[13px] font-medium text-zinc-200 hover:text-blue-400"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClickEpic?.(g.epic!.id);
+          }}
+        >
+          {g.label}
+        </span>
+        <span className="shrink-0 rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-500">
+          {g.tickets.length}
+        </span>
+        {g.epic.tags?.length > 0 && (
+          <TagList tags={g.epic.tags} max={2} className="ml-auto" />
+        )}
+      </div>
+    );
+  }
+
+  // Status/type group header — simple label
+  return (
+    <div
+      className="flex h-8 w-full cursor-pointer items-center gap-2 border-b border-zinc-800/60 bg-zinc-900/60 px-2"
+      onClick={onToggle}
+    >
+      <Chevron size={12} weight="bold" className="shrink-0 text-zinc-500" />
+      <span className="text-[12px] font-medium text-zinc-400">{g.label}</span>
+      <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-500">
+        {g.tickets.length}
+      </span>
+    </div>
+  );
+});
+
+// ── Single ticket row — memoized ──────────────────────────────
 
 const ListRow = memo(function ListRow({
   ticket,
@@ -154,18 +226,49 @@ function actionFromEvent(e: React.MouseEvent | MouseEvent): string | null {
 
 export function ListView() {
   const tickets = useFilteredTickets();
+  const groupBy = useFilterStore((s) => s.groupBy);
+  const collapsedGroups = useViewStore((s) => s.getCollapsedGroups());
+  const toggleGroupCollapse = useViewStore((s) => s.toggleGroupCollapse);
   const highlightIndex = useUIStore((s) => s.highlightIndex);
   const setHighlightIndex = useUIStore((s) => s.setHighlightIndex);
-  // Subscribe to selection at the ListView level — passed down to rows
   const selectedIds = useUIStore((s) => s.selectedIds);
   const { activeProjectId } = useProjectStore();
   const { updateTicketStatus } = useTicketStore();
   const [, navigate] = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // ── Grouped row model ─────────────────────────────────────
+  const flatRows: FlatRow[] | null = useMemo(() => {
+    if (!groupBy) return null;
+    const groups = groupTickets(tickets, groupBy);
+    return flattenGroups(groups, collapsedGroups);
+  }, [tickets, groupBy, collapsedGroups]);
+
+  // Ticket list for the interaction engine — when grouped, extract just the tickets
+  // from flatRows to keep index mapping consistent
+  const visibleTickets = useMemo(() => {
+    if (!flatRows) return tickets;
+    return flatRows
+      .filter((r): r is FlatRow & { type: "ticket" } => r.type === "ticket")
+      .map((r) => r.ticket);
+  }, [flatRows, tickets]);
+
+  // Map from flatRow index → ticket index for the interaction engine
+  const flatToTicketIndex = useMemo(() => {
+    if (!flatRows) return null;
+    const map = new Map<number, number>();
+    let ticketIdx = 0;
+    for (let i = 0; i < flatRows.length; i++) {
+      if (flatRows[i].type === "ticket") {
+        map.set(i, ticketIdx++);
+      }
+    }
+    return map;
+  }, [flatRows]);
+
   // Keep latest deps in refs so the interaction engine never goes stale
-  const ticketsRef = useRef(tickets);
-  ticketsRef.current = tickets;
+  const ticketsRef = useRef(visibleTickets);
+  ticketsRef.current = visibleTickets;
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
   const updateStatusRef = useRef(updateTicketStatus);
@@ -174,7 +277,6 @@ export function ListView() {
   activeProjectRef.current = activeProjectId;
 
   // State machine — created once, reads deps through refs
-  // viewState now only holds contextTargets — selection lives in UIStore
   const [viewState, setViewState] = useState<ListViewState>({
     contextTargets: [],
   });
@@ -192,7 +294,6 @@ export function ListView() {
         if (pid) updateStatusRef.current(pid, ticketId, status);
       },
       onChange: setViewState,
-      // Selection callbacks — UIStore is the single source of truth
       getSelection: () => useUIStore.getState().selectedIds,
       setSelection: (sel) => useUIStore.setState({ selectedIds: sel }),
       getSelectionAnchor: () => useUIStore.getState().selectionAnchor,
@@ -201,15 +302,28 @@ export function ListView() {
   }
   const engine = engineRef.current;
 
+  // Navigate to epic ticket
+  const handleClickEpic = useCallback(
+    (ticketId: string) => {
+      if (activeProjectId) navigate(`/${activeProjectId}/ticket/${ticketId}`);
+    },
+    [activeProjectId, navigate],
+  );
+
   // Scroll suppression for highlight
   const isScrolling = useRef(false);
   const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Virtualizer
+  // Virtualizer — count changes based on grouping
+  const totalRows = flatRows ? flatRows.length : tickets.length;
+
   const virtualizer = useVirtualizer({
-    count: tickets.length,
+    count: totalRows,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => {
+      if (flatRows && flatRows[index]?.type === "group-header") return GROUP_HEADER_HEIGHT;
+      return ROW_HEIGHT;
+    },
     overscan: 20,
   });
 
@@ -228,19 +342,27 @@ export function ListView() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Container event handlers — thin dispatch to engine
+  // ── Event handlers — dispatch to engine, but translate indices when grouped ──
+
+  /** Translate a flat-row index to the engine's ticket index */
+  function toTicketIndex(flatIdx: number): number | null {
+    if (!flatToTicketIndex) return flatIdx;
+    return flatToTicketIndex.get(flatIdx) ?? null;
+  }
+
   function onMouseDown(e: React.MouseEvent) {
-    const idx = rowIndexFromEvent(e);
+    const flatIdx = rowIndexFromEvent(e);
+    if (flatIdx === null) return;
+    // If clicking a group header, ignore for the engine
+    if (flatRows && flatRows[flatIdx]?.type === "group-header") return;
+    const idx = toTicketIndex(flatIdx);
     if (idx === null) return;
     const action = actionFromEvent(e);
     const result = engine.mousedown(
       idx,
       e.clientX,
       e.clientY,
-      {
-        shift: e.shiftKey,
-        meta: e.metaKey || e.ctrlKey,
-      },
+      { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey },
       action,
     );
     if (result === "stop") e.stopPropagation();
@@ -248,15 +370,15 @@ export function ListView() {
   }
 
   function onClick(e: React.MouseEvent) {
-    const idx = rowIndexFromEvent(e);
+    const flatIdx = rowIndexFromEvent(e);
+    if (flatIdx === null) return;
+    if (flatRows && flatRows[flatIdx]?.type === "group-header") return;
+    const idx = toTicketIndex(flatIdx);
     if (idx === null) return;
     const action = actionFromEvent(e);
     const result = engine.click(
       idx,
-      {
-        shift: e.shiftKey,
-        meta: e.metaKey || e.ctrlKey,
-      },
+      { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey },
       action,
     );
     if (result === "stop") e.stopPropagation();
@@ -264,19 +386,26 @@ export function ListView() {
 
   function onMouseMove(e: React.MouseEvent) {
     if (isScrolling.current) return;
-    const idx = rowIndexFromEvent(e);
-    if (idx !== null && engine.canHighlight()) setHighlightIndex(idx);
+    const flatIdx = rowIndexFromEvent(e);
+    if (flatIdx !== null && engine.canHighlight()) {
+      // For grouped view, only highlight ticket rows
+      if (flatRows && flatRows[flatIdx]?.type === "group-header") return;
+      const idx = toTicketIndex(flatIdx);
+      if (idx !== null) setHighlightIndex(idx);
+    }
   }
 
   function onContextMenu(e: React.MouseEvent) {
-    const idx = rowIndexFromEvent(e);
+    const flatIdx = rowIndexFromEvent(e);
+    if (flatIdx === null) return;
+    if (flatRows && flatRows[flatIdx]?.type === "group-header") return;
+    const idx = toTicketIndex(flatIdx);
     if (idx !== null) engine.contextmenu(idx);
   }
 
-  // Global mousemove/mouseup during drag — stable, no deps to go stale
+  // Global mousemove/mouseup during drag
   useEffect(() => {
     function onGlobalMousemove(e: MouseEvent) {
-      // Auto-scroll near edges
       const container = scrollRef.current;
       if (container && engine.isDragging()) {
         const rect = container.getBoundingClientRect();
@@ -286,7 +415,11 @@ export function ListView() {
 
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const row = el?.closest("[data-index]");
-      const idx = row ? parseInt(row.getAttribute("data-index")!, 10) : null;
+      let idx: number | null = null;
+      if (row) {
+        const flatIdx = parseInt(row.getAttribute("data-index")!, 10);
+        idx = flatToTicketIndex ? (flatToTicketIndex.get(flatIdx) ?? null) : flatIdx;
+      }
       engine.globalMousemove(e.clientX, e.clientY, idx);
     }
 
@@ -300,7 +433,7 @@ export function ListView() {
       window.removeEventListener("mousemove", onGlobalMousemove);
       window.removeEventListener("mouseup", onGlobalMouseup);
     };
-  }, [engine]);
+  }, [engine, flatToTicketIndex]);
 
   // Keyboard: Escape + Cmd+A
   useEffect(() => {
@@ -321,8 +454,12 @@ export function ListView() {
 
   // Scroll to highlighted row on keyboard nav
   useEffect(() => {
-    virtualizer.scrollToIndex(highlightIndex, { align: "auto" });
-  }, [highlightIndex, virtualizer]);
+    if (!flatRows) {
+      virtualizer.scrollToIndex(highlightIndex, { align: "auto" });
+    }
+    // When grouped, we'd need to map ticket index → flat index for scroll.
+    // For now, keyboard nav operates on ticket indices directly.
+  }, [highlightIndex, virtualizer, flatRows]);
 
   const virtualItems = virtualizer.getVirtualItems();
 
@@ -361,7 +498,7 @@ export function ListView() {
           onMouseMove={onMouseMove}
           onContextMenu={onContextMenu}
         >
-          {tickets.length === 0 ? (
+          {totalRows === 0 ? (
             <div className="flex h-40 items-center justify-center text-sm text-zinc-600">
               No tickets match your filters
             </div>
@@ -371,6 +508,53 @@ export function ListView() {
               style={{ height: virtualizer.getTotalSize() }}
             >
               {virtualItems.map((vrow) => {
+                // ── Grouped mode ──────────────────────────
+                if (flatRows) {
+                  const flatRow = flatRows[vrow.index];
+                  if (!flatRow) return null;
+
+                  if (flatRow.type === "group-header") {
+                    return (
+                      <div
+                        key={`gh-${flatRow.group.key}`}
+                        className="absolute left-0 top-0 w-full"
+                        style={{
+                          height: GROUP_HEADER_HEIGHT,
+                          transform: `translateY(${vrow.start}px)`,
+                        }}
+                      >
+                        <GroupHeaderRow
+                          group={flatRow as FlatRow & { type: "group-header" }}
+                          collapsed={collapsedGroups.has(flatRow.group.key)}
+                          onToggle={() => toggleGroupCollapse(flatRow.group.key)}
+                          onClickEpic={handleClickEpic}
+                        />
+                      </div>
+                    );
+                  }
+
+                  // Ticket row in grouped mode
+                  const ticketIdx = flatToTicketIndex?.get(vrow.index) ?? vrow.index;
+                  return (
+                    <div
+                      key={flatRow.ticket.id}
+                      className="absolute left-0 top-0 w-full"
+                      style={{
+                        height: ROW_HEIGHT,
+                        transform: `translateY(${vrow.start}px)`,
+                      }}
+                    >
+                      <ListRow
+                        ticket={flatRow.ticket}
+                        index={vrow.index}
+                        isHighlighted={ticketIdx === highlightIndex}
+                        isSelected={selectedIds.has(flatRow.ticket.id)}
+                      />
+                    </div>
+                  );
+                }
+
+                // ── Flat mode (no grouping) ───────────────
                 const ticket = tickets[vrow.index];
                 if (!ticket) return null;
 

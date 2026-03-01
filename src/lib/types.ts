@@ -92,6 +92,8 @@ export interface SavedList {
   filters: import('./filter-engine').FilterClause[]
   sortField: SortField
   sortDir: SortDir
+  /** Optional grouping field for list mode */
+  groupBy?: import('./group-engine').GroupField
 }
 
 export interface SavedView {
@@ -104,4 +106,6 @@ export interface SavedView {
   columns?: SavedList[]
   /** Board-level sort override (applies to all columns when set) */
   boardSort?: { field: SortField; dir: SortDir }
+  /** Keys of collapsed groups (persisted per-view) */
+  collapsedGroups?: string[]
 }

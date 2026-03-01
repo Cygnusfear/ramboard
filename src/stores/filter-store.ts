@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { SortField, SortDir } from '@/lib/types'
+import type { GroupField } from '@/lib/group-engine'
 import {
   type FilterSet,
   type FilterClause,
@@ -18,6 +19,8 @@ interface FilterState {
   /** Sort */
   sortField: SortField
   sortDir: SortDir
+  /** Grouping */
+  groupBy: GroupField | null
 
   // ── Actions ─────────────────────────────────────
   addFilter: (field: FilterField, operator?: FilterOperator, value?: FilterClause['value']) => string
@@ -26,6 +29,7 @@ interface FilterState {
   clearFilters: () => void
   setSearch: (search: string) => void
   setSort: (field: SortField) => void
+  setGroupBy: (field: GroupField | null) => void
 }
 
 /** Default filter: show only open + in_progress tickets */
@@ -38,6 +42,7 @@ export const useFilterStore = create<FilterState>((set) => ({
   search: '',
   sortField: 'priority',
   sortDir: 'asc',
+  groupBy: null,
 
   addFilter: (field, operator, value) => {
     const id = createFilterId()
@@ -68,6 +73,8 @@ export const useFilterStore = create<FilterState>((set) => ({
       sortDir: s.sortField === field && s.sortDir === 'asc' ? 'desc' : 'asc',
     }))
   },
+
+  setGroupBy: (field) => { set({ groupBy: field }) },
 }))
 
 

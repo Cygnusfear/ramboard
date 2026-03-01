@@ -43,11 +43,11 @@ export function useProjectViewSetup(projectId: string | null, viewId: string | n
     }
   }, [viewId, views, activeViewId, setActiveView])
 
-  // When active view changes, load its saved filters into filter store
+  // When active view changes, load its saved filters + groupBy into filter store
   useEffect(() => {
     if (activeView?.mode === 'list' && activeView.list) {
-      const { filters, sortField, sortDir } = activeView.list
-      useFilterStore.setState({ filters, sortField, sortDir })
+      const { filters, sortField, sortDir, groupBy } = activeView.list
+      useFilterStore.setState({ filters, sortField, sortDir, groupBy: groupBy ?? null })
       useViewStore.getState().markClean()
     }
   }, [activeViewId, activeView])
