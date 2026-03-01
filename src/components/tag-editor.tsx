@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useAllTags } from '@/hooks/use-all-tags'
 import { Popover } from '@base-ui/react/popover'
 import { Plus, X } from '@phosphor-icons/react'
 import { TagPill } from './tag-pill'
-import { useTicketStore } from '@/stores/ticket-store'
 import { normalizeTag } from '@/lib/tag-mutations'
 
 interface TagEditorProps {
@@ -23,16 +23,9 @@ export function TagEditor({ tags, onRemove, onAdd }: TagEditorProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const { tickets } = useTicketStore()
 
   // Collect all known tags across every ticket in the project
-  const allTags = useMemo(() => {
-    const set = new Set<string>()
-    for (const t of tickets) {
-      if (Array.isArray(t.tags)) t.tags.forEach(tag => set.add(tag))
-    }
-    return Array.from(set).sort()
-  }, [tickets])
+  const allTags = useAllTags()
 
   // Filter: exclude already-applied tags, match search
   const filtered = useMemo(() => {

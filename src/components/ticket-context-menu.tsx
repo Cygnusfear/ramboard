@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
+import { useAllTags } from '@/hooks/use-all-tags'
 import { Menu } from '@base-ui/react/menu'
 import {
   Copy, ArrowSquareOut, CaretRight, Minus,
@@ -89,14 +90,7 @@ function MenuContent({
   const [, navigate] = useNavigate()
 
   // All known tags for the Tags submenu
-  const allTickets = useTicketStore(s => s.tickets)
-  const allTags = useMemo(() => {
-    const set = new Set<string>()
-    for (const t of allTickets) {
-      if (Array.isArray(t.tags)) t.tags.forEach(tag => set.add(tag))
-    }
-    return Array.from(set).sort()
-  }, [allTickets])
+  const allTags = useAllTags()
 
   // Tag check state for target tickets
   const targetTagSets = useMemo(
