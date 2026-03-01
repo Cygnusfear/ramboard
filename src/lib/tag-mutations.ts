@@ -1,4 +1,11 @@
 /**
+ * Normalize a raw tag string: trim whitespace, lowercase, replace spaces with hyphens.
+ */
+export function normalizeTag(tag: string): string {
+  return tag.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+/**
  * Pure business rule for tag toggling across one or more tickets.
  *
  * If ALL given tickets already have the tag → remove it from all.

@@ -14,6 +14,7 @@ import { CopyableId } from './copyable-id'
 import { ArrowLeft } from '@phosphor-icons/react'
 import { statusOptions, priorityOptions, typeOptions } from '@/lib/ticket-options'
 import { TicketContextMenu } from './ticket-context-menu'
+import { nextStatus } from '@/lib/types'
 
 export function TicketDetail() {
   const {
@@ -47,9 +48,7 @@ export function TicketDetail() {
 
   const handleStatusToggle = useCallback(() => {
     if (!activeProjectId || !activeTicket) return
-    const newStatus = activeTicket.status === 'closed' ? 'open' :
-                      activeTicket.status === 'open' ? 'in_progress' :
-                      activeTicket.status === 'in_progress' ? 'closed' : 'open'
+    const newStatus = nextStatus(activeTicket.status)
     updateTicketStatus(activeProjectId, activeTicket.id, newStatus)
     goBack()
   }, [activeProjectId, activeTicket, updateTicketStatus, goBack])

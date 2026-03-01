@@ -3,6 +3,7 @@ import { Popover } from '@base-ui/react/popover'
 import { Plus, X } from '@phosphor-icons/react'
 import { TagPill } from './tag-pill'
 import { useTicketStore } from '@/stores/ticket-store'
+import { normalizeTag } from '@/lib/tag-mutations'
 
 interface TagEditorProps {
   tags: string[]
@@ -51,7 +52,7 @@ export function TagEditor({ tags, onRemove, onAdd }: TagEditorProps) {
   }
 
   const handleCreate = () => {
-    const tag = search.trim().toLowerCase().replace(/\s+/g, '-')
+    const tag = normalizeTag(search)
     if (tag) {
       onAdd(tag)
       setSearch('')
@@ -128,7 +129,7 @@ export function TagEditor({ tags, onRemove, onAdd }: TagEditorProps) {
                     onClick={handleCreate}
                   >
                     <Plus size={12} weight="bold" />
-                    Create "{search.trim().toLowerCase().replace(/\s+/g, '-')}"
+                    Create "{normalizeTag(search)}"
                   </button>
                 )}
                 {filtered.length === 0 && !showCreate && (

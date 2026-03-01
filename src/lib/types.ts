@@ -28,12 +28,32 @@ export type ViewMode = 'list' | 'board' | 'graph'
 export type SortField = 'priority' | 'created' | 'modified' | 'title' | 'status'
 export type SortDir = 'asc' | 'desc'
 
+export const SORT_FIELD_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'priority', label: 'Priority' },
+  { value: 'created', label: 'Created' },
+  { value: 'modified', label: 'Modified' },
+  { value: 'status', label: 'Status' },
+  { value: 'title', label: 'Title' },
+]
+
 export const STATUS_ORDER = ['open', 'in_progress', 'closed', 'cancelled'] as const
 export const STATUS_LABELS: Record<string, string> = {
   open: 'Open',
   in_progress: 'In Progress',
   closed: 'Closed',
   cancelled: 'Cancelled',
+}
+
+/** Maps each status to the next status when cycling (space/click). */
+export const STATUS_CYCLE: Record<string, string> = {
+  open: 'in_progress',
+  in_progress: 'closed',
+  closed: 'open',
+}
+
+/** Returns the next status in the cycle, defaulting to 'open'. */
+export function nextStatus(status: string): string {
+  return STATUS_CYCLE[status] ?? 'open'
 }
 export const PRIORITY_LABELS: Record<number, string> = {
   0: 'Urgent',

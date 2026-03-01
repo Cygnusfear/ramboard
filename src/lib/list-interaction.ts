@@ -12,6 +12,7 @@
  */
 
 import type { TicketSummary } from './types'
+import { STATUS_CYCLE } from './types'
 
 // ── Public state (what React reads) ───────────────────────────
 
@@ -20,14 +21,6 @@ export interface ListViewState {
   selection: Set<string>
   /** Tickets targeted by the context menu */
   contextTargets: TicketSummary[]
-}
-
-// ── Status cycle ──────────────────────────────────────────────
-
-const STATUS_CYCLE: Record<string, string> = {
-  open: 'in_progress',
-  in_progress: 'closed',
-  closed: 'open',
 }
 
 // ── Factory ───────────────────────────────────────────────────

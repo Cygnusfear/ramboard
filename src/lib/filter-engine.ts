@@ -254,6 +254,29 @@ export function createFilterId(): string {
   return `f-${++_nextId}-${Date.now().toString(36)}`
 }
 
+/** Default value for a new filter clause — keyed by operator */
+export function getDefaultValue(_field: FilterField, operator: FilterOperator): FilterClause['value'] {
+  switch (operator) {
+    case 'any_of':
+    case 'none_of':
+      return []
+    case 'between':
+      return ['', '']
+    case 'last_n_days':
+    case 'older_than':
+    case 'newer_than':
+      return 30
+    case 'contains':
+    case 'is':
+    case 'is_not':
+    case 'before':
+    case 'after':
+      return ''
+    default:
+      return ''
+  }
+}
+
 /**
  * Extract unique values for a field from tickets (for multi-select options).
  */

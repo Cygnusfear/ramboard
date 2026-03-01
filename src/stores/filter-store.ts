@@ -7,6 +7,7 @@ import {
   type FilterOperator,
   createFilterId,
   FIELD_OPERATORS,
+  getDefaultValue,
 } from '@/lib/filter-engine'
 
 interface FilterState {
@@ -79,25 +80,4 @@ export const useFilterStore = create<FilterState>((set) => ({
   },
 }))
 
-/** Default value for a new filter clause — keyed by operator */
-export function getDefaultValue(_field: FilterField, operator: FilterOperator): FilterClause['value'] {
-  switch (operator) {
-    case 'any_of':
-    case 'none_of':
-      return []
-    case 'between':
-      return ['', '']
-    case 'last_n_days':
-    case 'older_than':
-    case 'newer_than':
-      return 30
-    case 'contains':
-    case 'is':
-    case 'is_not':
-    case 'before':
-    case 'after':
-      return ''
-    default:
-      return ''
-  }
-}
+

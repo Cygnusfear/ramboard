@@ -1,3 +1,5 @@
+import { STATUS_LABELS } from '@/lib/types'
+
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-emerald-500',
   in_progress: 'bg-amber-500',
@@ -10,13 +12,6 @@ const STATUS_RING: Record<string, string> = {
   in_progress: 'ring-amber-500/30',
   closed: 'ring-zinc-500/30',
   cancelled: 'ring-red-500/30',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Open',
-  in_progress: 'In Progress',
-  closed: 'Closed',
-  cancelled: 'Cancelled',
 }
 
 export function StatusDot({

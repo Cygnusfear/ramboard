@@ -14,7 +14,8 @@ import {
 } from '@/lib/filter-engine'
 import type { FilterClause } from '@/lib/filter-engine'
 import type { SavedList, SortField, SortDir } from '@/lib/types'
-import { getDefaultValue } from '@/stores/filter-store'
+import { SORT_FIELD_OPTIONS } from '@/lib/types'
+import { getDefaultValue } from '@/lib/filter-engine'
 import { FilterRow } from './filter-primitives'
 import {
   Plus,
@@ -22,16 +23,6 @@ import {
   SortAscending,
   SortDescending,
 } from '@phosphor-icons/react'
-
-// ── Sort field options ────────────────────────────────────────
-
-const SORT_FIELDS: { value: SortField; label: string }[] = [
-  { value: 'priority', label: 'Priority' },
-  { value: 'created', label: 'Created' },
-  { value: 'modified', label: 'Modified' },
-  { value: 'status', label: 'Status' },
-  { value: 'title', label: 'Title' },
-]
 
 // ── Add filter field picker ───────────────────────────────────
 
@@ -154,7 +145,7 @@ export function ColumnEditor({ column, onUpdate, onDelete, children }: ColumnEdi
                   onChange={e => setSortField(e.target.value as SortField)}
                   className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-300 outline-none"
                 >
-                  {SORT_FIELDS.map(sf => (
+                  {SORT_FIELD_OPTIONS.map(sf => (
                     <option key={sf.value} value={sf.value}>{sf.label}</option>
                   ))}
                 </select>

@@ -24,7 +24,7 @@ import { BoardColumn } from './board-column'
 import { ColumnEditor } from './column-editor'
 import { createFilterId, applyFiltersAndSort } from '@/lib/filter-engine'
 import type { SavedList, SavedView, SortField, SortDir } from '@/lib/types'
-import { STATUS_LABELS, PRIORITY_LABELS } from '@/lib/types'
+import { STATUS_LABELS, PRIORITY_LABELS, SORT_FIELD_OPTIONS } from '@/lib/types'
 import {
   Plus,
   SortAscending,
@@ -180,14 +180,6 @@ function BoardToolbar({
     </div>
   )
 }
-
-const SORT_FIELD_OPTIONS: { value: SortField; label: string }[] = [
-  { value: 'priority', label: 'Priority' },
-  { value: 'created', label: 'Created' },
-  { value: 'modified', label: 'Modified' },
-  { value: 'status', label: 'Status' },
-  { value: 'title', label: 'Title' },
-]
 
 // ── Sortable column wrapper ───────────────────────────────────
 
