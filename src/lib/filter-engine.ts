@@ -247,22 +247,6 @@ export function applyFiltersAndSort(params: FilterSortParams): TicketSummary[] {
   return result
 }
 
-// ── Serialization (URL query params) ──────────────────────────
-
-export function serializeFilters(filters: FilterSet): string {
-  if (filters.length === 0) return ''
-  return encodeURIComponent(JSON.stringify(filters))
-}
-
-export function deserializeFilters(raw: string): FilterSet {
-  if (!raw) return []
-  try {
-    return JSON.parse(decodeURIComponent(raw)) as FilterSet
-  } catch {
-    return []
-  }
-}
-
 // ── Helpers ───────────────────────────────────────────────────
 
 let _nextId = 0
