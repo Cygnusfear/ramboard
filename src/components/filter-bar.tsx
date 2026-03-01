@@ -37,7 +37,7 @@ function FilterChip({ clause, autoOpen, onOpened }: { clause: FilterClause; auto
 
       <Popover.Portal>
         <Popover.Positioner sideOffset={8}>
-          <Popover.Popup className="min-w-[240px] origin-[var(--transform-origin)] rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl transition-[transform,opacity] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Popover.Popup className="min-w-[240px] max-w-[360px] origin-[var(--transform-origin)] rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl transition-[transform,opacity] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             <FilterEditor
               clause={clause}
               onUpdate={(patch) => updateFilter(clause.id, patch)}
