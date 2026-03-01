@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import { useFilterStore } from '@/stores/filter-store'
 import type { GroupField } from '@/lib/group-engine'
@@ -13,11 +14,14 @@ import { FilterEditor, formatFilterValue } from './filter-primitives'
 
 // ── Filter chip (shows one active filter) ─────────────────────
 
-function FilterChip({ clause }: { clause: FilterClause }) {
+function FilterChip({ clause, autoOpen, onOpened }: { clause: FilterClause; autoOpen?: boolean; onOpened?: () => void }) {
   const { updateFilter, removeFilter } = useFilterStore()
 
   return (
-    <Popover.Root>
+    <Popover.Root
+      defaultOpen={autoOpen}
+      onOpenChange={(open) => { if (open && autoOpen) onOpened?.() }}
+    >
       <Popover.Trigger
         className="flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/50 px-2 py-1 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800 data-[popup-open]:border-zinc-600 data-[popup-open]:bg-zinc-800"
       >
@@ -47,7 +51,7 @@ function FilterChip({ clause }: { clause: FilterClause }) {
 
 // ── Add filter button ─────────────────────────────────────────
 
-function AddFilterButton() {
+function AddFilterButton({ onAdded }: { onAdded?: (id: string) => void }) {
   const { addFilter } = useFilterStore()
 
   return (
@@ -65,7 +69,10 @@ function AddFilterButton() {
             {FILTER_FIELDS.map(field => (
               <Popover.Close
                 key={field}
-                onClick={() => addFilter(field)}
+                onClick={() => {
+                  const id = addFilter(field)
+                  onAdded?.(id)
+                }}
                 className="flex w-full items-center px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
               >
                 {FIELD_LABELS[field]}
@@ -129,6 +136,15 @@ function GroupByButton() {
 export function FilterBar() {
   const { filters, search, setSearch, clearFilters } = useFilterStore()
   const hasFilters = filters.length > 0 || search.length > 0
+  const [newFilterId, setNewFilterId] = useState<string | null>(null)
+
+  const handleFilterAdded = useCallback((id: string) => {
+    setNewFilterId(id)
+  }, [])
+
+  const handleOpened = useCallback(() => {
+    setNewFilterId(null)
+  }, [])
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto px-4 py-1.5">
@@ -154,11 +170,16 @@ export function FilterBar() {
 
       {/* Active filter chips */}
       {filters.map(clause => (
-        <FilterChip key={clause.id} clause={clause} />
+        <FilterChip
+          key={clause.id}
+          clause={clause}
+          autoOpen={clause.id === newFilterId}
+          onOpened={handleOpened}
+        />
       ))}
 
       {/* Add filter */}
-      <AddFilterButton />
+      <AddFilterButton onAdded={handleFilterAdded} />
 
       <div className="h-4 w-px bg-zinc-800" />
 
