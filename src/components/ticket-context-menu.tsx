@@ -3,13 +3,14 @@ import { ContextMenu } from '@base-ui/react/context-menu'
 import { useAllTags } from '@/hooks/use-all-tags'
 import { Menu } from '@base-ui/react/menu'
 import {
-  Copy, ArrowSquareOut, CaretRight, Minus,
+  Copy, ArrowSquareOut, CaretRight, Minus, FunnelSimple,
   CircleDashed, ChartBar, ListChecks, Tag, DotsThree, CheckCircle,
 } from '@phosphor-icons/react'
 import type { TicketSummary } from '@/lib/types'
 import { statusOptions, priorityOptions, typeOptions } from '@/lib/ticket-options'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
+import { useFilterStore } from '@/stores/filter-store'
 import { useNavigate } from '@/hooks/use-navigate'
 import { toggleTagForTickets } from '@/lib/tag-mutations'
 
@@ -253,6 +254,22 @@ function MenuContent({
           </NS.Positioner>
         </NS.Portal>
       </NS.SubmenuRoot>
+
+      {/* Filter by children (single ticket only) */}
+      {single && (
+        <>
+          <NS.Separator className={menuSeparatorCls} />
+          <NS.Item
+            className={menuItemCls}
+            onClick={() => {
+              useFilterStore.getState().addFilter('parent', 'any_of', [single.id])
+            }}
+          >
+            <FunnelSimple size={14} className="text-zinc-500" />
+            Filter by children
+          </NS.Item>
+        </>
+      )}
 
       <NS.Separator className={menuSeparatorCls} />
 

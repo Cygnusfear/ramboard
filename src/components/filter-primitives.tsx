@@ -19,9 +19,17 @@ import { Check, X } from '@phosphor-icons/react'
 
 // ── Helpers ───────────────────────────────────────────────────
 
+/** Map ticket ID → title for parent filter display */
+function getTicketTitle(ticketId: string): string {
+  const tickets = useTicketStore.getState().tickets
+  const t = tickets.find(t => t.id === ticketId)
+  return t ? `${t.id} ${t.title}` : ticketId
+}
+
 export function labelForOption(field: FilterField, val: string): string {
   if (field === 'status') return STATUS_LABELS[val] ?? val
   if (field === 'priority') return PRIORITY_LABELS[Number(val)] ?? `P${val}`
+  if (field === 'parent') return getTicketTitle(val)
   return val
 }
 
@@ -69,8 +77,9 @@ export function FilterEditor({
         ))}
       </div>
 
-      {/* Value editor — depends on field type */}
-      {isDateField(clause.field) ? (
+      {/* Value editor — depends on field type + operator */}
+      {clause.operator === 'is_empty' || clause.operator === 'is_not_empty' ? null
+        : isDateField(clause.field) ? (
         <DateValueEditor clause={clause} onUpdate={onUpdate} />
       ) : clause.field === 'title' ? (
         <TextValueEditor clause={clause} onUpdate={onUpdate} />
@@ -253,6 +262,9 @@ export function TextValueEditor({
 
 export function formatFilterValue(clause: FilterClause): string {
   const { field, operator, value } = clause
+
+  if (operator === 'is_empty') return '—'
+  if (operator === 'is_not_empty') return '✓'
 
   if (DAY_PICKER_OPS.has(operator) && typeof value === 'number') {
     const preset = DATE_PRESETS.find(p => p.days === value)

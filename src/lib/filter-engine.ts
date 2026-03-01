@@ -3,16 +3,19 @@
  * Evaluates composite filters against ticket data.
  */
 import type { TicketSummary, SortField, SortDir } from './types'
+import { buildAncestryMap } from './group-engine'
 
 // ── Filter types ──────────────────────────────────────────────
 
-export type FilterField = 'status' | 'priority' | 'type' | 'tag' | 'assignee' | 'created' | 'modified' | 'title'
+export type FilterField = 'status' | 'priority' | 'type' | 'tag' | 'assignee' | 'parent' | 'created' | 'modified' | 'title'
 
 export type FilterOperator =
   | 'is'           // exact match (single value)
   | 'is_not'       // not equal
   | 'any_of'       // value is in list
   | 'none_of'      // value is not in list
+  | 'is_empty'     // field has no value (e.g. no parent)
+  | 'is_not_empty' // field has a value
   | 'contains'     // substring match (text fields)
   | 'before'       // date < value
   | 'after'        // date > value
@@ -34,7 +37,7 @@ export type FilterSet = FilterClause[]
 // ── Operator definitions per field ────────────────────────────
 
 /** All available filter fields in display order */
-export const FILTER_FIELDS: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'created', 'modified', 'title']
+export const FILTER_FIELDS: FilterField[] = ['status', 'priority', 'type', 'tag', 'assignee', 'parent', 'created', 'modified', 'title']
 
 export const FIELD_OPERATORS: Record<FilterField, FilterOperator[]> = {
   status:   ['any_of', 'none_of'],
@@ -42,6 +45,7 @@ export const FIELD_OPERATORS: Record<FilterField, FilterOperator[]> = {
   type:     ['any_of', 'none_of'],
   tag:      ['any_of', 'none_of'],
   assignee: ['is', 'is_not', 'any_of', 'none_of'],
+  parent:   ['any_of', 'none_of', 'is_empty', 'is_not_empty'],
   created:  ['newer_than', 'older_than', 'last_n_days', 'before', 'after', 'between'],
   modified: ['newer_than', 'older_than', 'last_n_days', 'before', 'after', 'between'],
   title:    ['contains'],
@@ -53,6 +57,7 @@ export const FIELD_LABELS: Record<FilterField, string> = {
   type: 'Type',
   tag: 'Tag',
   assignee: 'Assignee',
+  parent: 'Parent',
   created: 'Created',
   modified: 'Modified',
   title: 'Title',
@@ -63,6 +68,8 @@ export const OPERATOR_LABELS: Record<FilterOperator, string> = {
   is_not: 'is not',
   any_of: 'is any of',
   none_of: 'is none of',
+  is_empty: 'is empty',
+  is_not_empty: 'is not empty',
   contains: 'contains',
   before: 'before',
   after: 'after',
@@ -87,7 +94,11 @@ export const DATE_PRESETS = [
 
 // ── Evaluation ────────────────────────────────────────────────
 
-function matchClause(ticket: TicketSummary, clause: FilterClause): boolean {
+function matchClause(
+  ticket: TicketSummary,
+  clause: FilterClause,
+  ancestryMap?: Map<string, Set<string>>,
+): boolean {
   const { field, operator, value } = clause
 
   switch (field) {
@@ -101,6 +112,8 @@ function matchClause(ticket: TicketSummary, clause: FilterClause): boolean {
       return matchTagField(ticket.tags, operator, value)
     case 'assignee':
       return matchSetField(ticket.assignee ?? '', operator, value)
+    case 'parent':
+      return matchParentField(ticket.id, operator, value, ancestryMap)
     case 'created':
       return matchDateField(ticket.created, operator, value)
     case 'modified':
@@ -171,6 +184,33 @@ function matchTextField(
   }
 }
 
+function matchParentField(
+  ticketId: string,
+  operator: FilterOperator,
+  value: FilterClause['value'],
+  ancestryMap?: Map<string, Set<string>>,
+): boolean {
+  const ancestors = ancestryMap?.get(ticketId)
+  const hasParent = ancestors != null && ancestors.size > 0
+
+  switch (operator) {
+    case 'is_empty':
+      return !hasParent
+    case 'is_not_empty':
+      return hasParent
+    case 'any_of': {
+      if (!Array.isArray(value) || !ancestors) return !hasParent
+      return value.some(v => ancestors.has(String(v)))
+    }
+    case 'none_of': {
+      if (!Array.isArray(value) || !ancestors) return true
+      return !value.some(v => ancestors.has(String(v)))
+    }
+    default:
+      return true
+  }
+}
+
 function matchDateField(
   dateStr: string,
   operator: FilterOperator,
@@ -228,9 +268,13 @@ export function applyFiltersAndSort(params: FilterSortParams): TicketSummary[] {
     )
   }
 
+  // Pre-compute ancestry map if any filter uses 'parent' field
+  const needsAncestry = filters.some(f => f.field === 'parent')
+  const ancestryMap = needsAncestry ? buildAncestryMap(tickets) : undefined
+
   // Apply all filter clauses (AND)
   for (const clause of filters) {
-    result = result.filter(t => matchClause(t, clause))
+    result = result.filter(t => matchClause(t, clause, ancestryMap))
   }
 
   // Sort
@@ -260,6 +304,9 @@ export function getDefaultValue(_field: FilterField, operator: FilterOperator): 
     case 'any_of':
     case 'none_of':
       return []
+    case 'is_empty':
+    case 'is_not_empty':
+      return ''
     case 'between':
       return ['', '']
     case 'last_n_days':
@@ -289,6 +336,19 @@ export function uniqueFieldValues(tickets: TicketSummary[], field: FilterField):
       case 'type': vals.add(t.type); break
       case 'tag': (Array.isArray(t.tags) ? t.tags : []).forEach(tag => { if (typeof tag === 'string') vals.add(tag) }); break
       case 'assignee': if (t.assignee) vals.add(t.assignee); break
+      case 'parent': {
+        // Return all tickets that could be parents (referenced by deps/links)
+        const referenced = new Set<string>()
+        for (const ticket of tickets) {
+          for (const id of [...ticket.deps, ...ticket.links]) referenced.add(id)
+        }
+        // Only include those that exist in our ticket set
+        const idSet = new Set(tickets.map(ticket => ticket.id))
+        for (const id of referenced) {
+          if (idSet.has(id)) vals.add(id)
+        }
+        break
+      }
     }
   }
   return [...vals].sort()

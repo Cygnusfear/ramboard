@@ -103,6 +103,54 @@ function groupByField(
   }))
 }
 
+// ── Ancestry graph — shared by grouping + filtering ───────────
+
+/**
+ * Build a map: ticketId → Set of all ancestor ticket IDs (transitive).
+ * Walks deps + links upward with BFS. Cycle-safe.
+ */
+export function buildAncestryMap(tickets: TicketSummary[]): Map<string, Set<string>> {
+  const byId = new Set(tickets.map(t => t.id))
+
+  // child → direct parents (only those in the visible set)
+  const parentIds = new Map<string, string[]>()
+  for (const t of tickets) {
+    const parents = [...t.deps, ...t.links].filter(id => byId.has(id))
+    if (parents.length > 0) parentIds.set(t.id, parents)
+  }
+
+  const cache = new Map<string, Set<string>>()
+
+  function resolve(id: string): Set<string> {
+    if (cache.has(id)) return cache.get(id)!
+
+    const ancestors = new Set<string>()
+    const visited = new Set<string>()
+    const queue = parentIds.get(id) ?? []
+    visited.add(id)
+
+    for (const pid of queue) {
+      if (visited.has(pid)) continue
+      visited.add(pid)
+      ancestors.add(pid)
+      // Recurse through their parents too
+      const grandparents = parentIds.get(pid) ?? []
+      for (const gp of grandparents) {
+        if (!visited.has(gp)) queue.push(gp)
+      }
+    }
+
+    cache.set(id, ancestors)
+    return ancestors
+  }
+
+  const result = new Map<string, Set<string>>()
+  for (const t of tickets) {
+    result.set(t.id, resolve(t.id))
+  }
+  return result
+}
+
 // ── Epic grouping — transitive graph walk ─────────────────────
 
 function groupByEpic(tickets: TicketSummary[]): TicketGroup[] {
@@ -110,66 +158,32 @@ function groupByEpic(tickets: TicketSummary[]): TicketGroup[] {
   const byId = new Map<string, TicketSummary>()
   for (const t of tickets) byId.set(t.id, t)
 
-  // Build child→parent adjacency from deps + links
-  // A ticket's deps/links point to its parents
-  const parentIds = new Map<string, string[]>()
-  for (const t of tickets) {
-    const parents = [...t.deps, ...t.links].filter(id => byId.has(id))
-    if (parents.length > 0) parentIds.set(t.id, parents)
-  }
-
-  // Cache: ticketId → nearest epic ancestor ID (or null)
-  const epicCache = new Map<string, string | null>()
-
-  function findEpicAncestor(id: string): string | null {
-    if (epicCache.has(id)) return epicCache.get(id)!
-
-    // BFS up the graph
-    const visited = new Set<string>()
-    const queue: { id: string; depth: number }[] = [{ id, depth: 0 }]
-    visited.add(id)
-
-    let nearest: string | null = null
-    let nearestDepth = Infinity
-
-    while (queue.length > 0) {
-      const cur = queue.shift()!
-      const parents = parentIds.get(cur.id)
-      if (!parents) continue
-
-      for (const pid of parents) {
-        if (visited.has(pid)) continue
-        visited.add(pid)
-
-        const parent = byId.get(pid)
-        if (!parent) continue
-
-        if (parent.type === 'epic' && cur.depth + 1 < nearestDepth) {
-          nearest = pid
-          nearestDepth = cur.depth + 1
-        } else {
-          queue.push({ id: pid, depth: cur.depth + 1 })
-        }
-      }
-    }
-
-    epicCache.set(id, nearest)
-    return nearest
-  }
+  const ancestryMap = buildAncestryMap(tickets)
 
   // Identify epic tickets in the visible set
   const epicTickets = tickets.filter(t => t.type === 'epic')
   const epicIds = new Set(epicTickets.map(t => t.id))
 
   // Assign each non-epic ticket to its nearest epic ancestor
+  // "Nearest" = first epic found in ancestors (BFS order is shortest path)
   const buckets = new Map<string, TicketSummary[]>()
   const ungrouped: TicketSummary[] = []
 
   for (const t of tickets) {
-    // Epic tickets are group headers, not children
     if (epicIds.has(t.id)) continue
 
-    const epicId = findEpicAncestor(t.id)
+    const ancestors = ancestryMap.get(t.id)
+    // Find the first epic in ancestors
+    let epicId: string | null = null
+    if (ancestors) {
+      for (const aid of ancestors) {
+        if (epicIds.has(aid) || byId.get(aid)?.type === 'epic') {
+          epicId = aid
+          break
+        }
+      }
+    }
+
     if (epicId) {
       let bucket = buckets.get(epicId)
       if (!bucket) {
