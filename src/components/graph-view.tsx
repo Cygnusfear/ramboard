@@ -4,7 +4,7 @@ import { useProjectStore } from '@/stores/project-store'
 import { useNavigate } from '@/hooks/use-navigate'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
-import { STATUS_LABELS, type TicketSummary } from '@/lib/types'
+import { STATUS_LABELS, STATUS_HEX_COLORS, type TicketSummary } from '@/lib/types'
 import {
   computeLayout,
   type GraphLayout,
@@ -57,14 +57,7 @@ function Tooltip({ ticket, x, y }: { ticket: TicketSummary; x: number; y: number
   )
 }
 
-// ── Node colors by status ─────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  open: '#a1a1aa',       // zinc-400
-  in_progress: '#60a5fa', // blue-400
-  closed: '#4ade80',      // green-400
-  cancelled: '#71717a',   // zinc-500
-}
+// ── Node colors by status (canonical from types.ts) ──────────
 
 // ── Graph View ────────────────────────────────────────────────
 
@@ -198,7 +191,7 @@ export function GraphView() {
           {layout.nodes.map(({ ticket, x, y, width, height }) => {
             const isEpic = ticket.type === 'epic' || ticket.tags?.includes('epic')
             const isBoardReview = ticket.tags?.includes('board-review')
-            const borderColor = isEpic ? '#f97316' : (STATUS_COLORS[ticket.status] ?? '#71717a')
+            const borderColor = isEpic ? '#f97316' : (STATUS_HEX_COLORS[ticket.status] ?? '#71717a')
             const nodeFill = isBoardReview ? '#241f0a' : '#18181b'
             const nx = x - width / 2
             const ny = y - height / 2
@@ -282,7 +275,7 @@ export function GraphView() {
             <span key={status} className="flex items-center gap-1.5">
               <span
                 className="inline-block size-2.5 rounded-full"
-                style={{ backgroundColor: STATUS_COLORS[status] }}
+                style={{ backgroundColor: STATUS_HEX_COLORS[status] }}
               />
               {label}
             </span>

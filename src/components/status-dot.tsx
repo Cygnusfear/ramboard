@@ -1,18 +1,4 @@
-import { STATUS_LABELS } from '@/lib/types'
-
-const STATUS_COLORS: Record<string, string> = {
-  open: 'bg-emerald-500',
-  in_progress: 'bg-amber-500',
-  closed: 'bg-zinc-500',
-  cancelled: 'bg-red-500',
-}
-
-const STATUS_RING: Record<string, string> = {
-  open: 'ring-emerald-500/30',
-  in_progress: 'ring-amber-500/30',
-  closed: 'ring-zinc-500/30',
-  cancelled: 'ring-red-500/30',
-}
+import { STATUS_LABELS, STATUS_DOT_COLORS, STATUS_RING_COLORS } from '@/lib/types'
 
 export function StatusDot({
   status,
@@ -23,8 +9,8 @@ export function StatusDot({
   showLabel?: boolean
   interactive?: boolean
 }) {
-  const dot = STATUS_COLORS[status] || 'bg-zinc-600'
-  const ring = STATUS_RING[status] || 'ring-zinc-600/30'
+  const dot = STATUS_DOT_COLORS[status] || 'bg-zinc-600'
+  const ring = STATUS_RING_COLORS[status] || 'ring-zinc-600/30'
 
   return (
     <span className={`inline-flex items-center gap-1.5 ${interactive ? 'group/status' : ''}`}>

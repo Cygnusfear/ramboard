@@ -42,6 +42,29 @@ export const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 
+/** Canonical status colors — Tailwind classes for components */
+export const STATUS_DOT_COLORS: Record<string, string> = {
+  open: 'bg-emerald-500',
+  in_progress: 'bg-amber-500',
+  closed: 'bg-zinc-500',
+  cancelled: 'bg-red-500',
+}
+
+export const STATUS_RING_COLORS: Record<string, string> = {
+  open: 'ring-emerald-500/30',
+  in_progress: 'ring-amber-500/30',
+  closed: 'ring-zinc-500/30',
+  cancelled: 'ring-red-500/30',
+}
+
+/** Canonical status colors — hex values for SVG/canvas */
+export const STATUS_HEX_COLORS: Record<string, string> = {
+  open: '#10b981',       // emerald-500
+  in_progress: '#f59e0b', // amber-500
+  closed: '#71717a',      // zinc-500
+  cancelled: '#ef4444',   // red-500
+}
+
 /** Maps each status to the next status when cycling (space/click). */
 export const STATUS_CYCLE: Record<string, string> = {
   open: 'in_progress',
