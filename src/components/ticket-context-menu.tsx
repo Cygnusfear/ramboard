@@ -25,7 +25,7 @@ export const submenuTriggerCls =
 export const menuSeparatorCls = 'mx-2 my-1 h-px bg-zinc-800'
 
 export const menuPopupCls =
-  'min-w-[180px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80 ' +
+  'min-w-[180px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80 outline-none ' +
   'origin-[var(--transform-origin)] transition-opacity data-[ending-style]:opacity-0'
 
 export const kbdCls = 'ml-auto pl-4 font-mono text-[11px] text-zinc-600'

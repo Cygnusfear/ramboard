@@ -39,7 +39,7 @@ const dangerItemCls =
   'data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-300'
 
 const popupCls =
-  'min-w-[160px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80 ' +
+  'min-w-[160px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-zinc-950/80 outline-none ' +
   'origin-[var(--transform-origin)] transition-opacity data-[ending-style]:opacity-0'
 
 // ── Sortable project item ─────────────────────────────────────
