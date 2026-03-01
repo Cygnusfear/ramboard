@@ -1,16 +1,12 @@
 import { create } from 'zustand'
-import type { ViewMode } from '@/lib/types'
 
 interface UIState {
-  viewMode: ViewMode
   highlightIndex: number
   selectedIds: Set<string>
   selectionAnchor: string | null
   showCommandPalette: boolean
   showKeyboardHelp: boolean
 
-  setViewMode: (mode: ViewMode) => void
-  toggleViewMode: () => void
   setHighlightIndex: (index: number) => void
   moveHighlight: (delta: number, max: number) => void
   toggleSelection: (id: string) => void
@@ -22,15 +18,11 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
-  viewMode: 'list',
   highlightIndex: 0,
   selectedIds: new Set(),
   selectionAnchor: null,
   showCommandPalette: false,
   showKeyboardHelp: false,
-
-  setViewMode: (mode) => set({ viewMode: mode }),
-  toggleViewMode: () => set(s => ({ viewMode: s.viewMode === 'list' ? 'board' : 'list' })),
 
   setHighlightIndex: (index) => set({ highlightIndex: index }),
   moveHighlight: (delta, max) => set(s => ({

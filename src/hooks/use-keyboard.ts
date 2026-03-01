@@ -4,6 +4,7 @@ import { useUIStore } from '@/stores/ui-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { useFilterStore } from '@/stores/filter-store'
+import { useViewStore } from '@/stores/view-store'
 import { applyFiltersAndSort } from '@/lib/filter-engine'
 
 /** Get current filtered tickets imperatively (outside React render) */
@@ -139,10 +140,42 @@ export function useKeyboard() {
             ticketStore.updateTicketStatus(projects.activeProjectId, tickets[ui.highlightIndex].id, 'closed')
           }
           break
-        case 'v':
+        case 'v': {
           e.preventDefault()
-          ui.toggleViewMode()
+          const viewStore = useViewStore.getState()
+          const activeView = viewStore.views.find(v => v.id === viewStore.activeViewId)
+          const currentMode = activeView?.mode ?? 'list'
+          const targetMode = currentMode === 'list' ? 'board' : 'list'
+          const target = viewStore.views.find(v => v.mode === targetMode)
+          if (target) {
+            viewStore.setActiveView(target.id)
+          } else if (activeView) {
+            viewStore.updateViewLocal(activeView.id, { mode: targetMode })
+          }
           break
+        }
+        case 'p': {
+          e.preventDefault()
+          const ticket = tickets[ui.highlightIndex]
+          if (ticket && projects.activeProjectId) {
+            const next = (ticket.priority + 1) % 4
+            ticketStore.updateTicketPriority(projects.activeProjectId, ticket.id, next)
+          }
+          break
+        }
+        case 'X': {
+          e.preventDefault()
+          const highlighted = tickets[ui.highlightIndex]
+          if (!highlighted) break
+          const anchor = ui.selectionAnchor
+          if (!anchor) {
+            ui.toggleSelection(highlighted.id)
+          } else {
+            const visibleIds = tickets.map(t => t.id)
+            ui.rangeSelect(visibleIds, anchor, highlighted.id)
+          }
+          break
+        }
         case '?':
           e.preventDefault()
           ui.setShowKeyboardHelp(!ui.showKeyboardHelp)
