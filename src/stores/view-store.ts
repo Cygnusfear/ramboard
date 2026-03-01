@@ -16,7 +16,6 @@ interface ViewState {
   markDirty: () => void
   markClean: () => void
   toggleGroupCollapse: (groupKey: string) => void
-  getCollapsedGroups: () => Set<string>
 }
 
 export const useViewStore = create<ViewState>((set, get) => ({
@@ -90,12 +89,5 @@ export const useViewStore = create<ViewState>((set, get) => ({
       ),
       dirty: true,
     }))
-  },
-
-  getCollapsedGroups: () => {
-    const { activeViewId, views } = get()
-    if (!activeViewId) return new Set<string>()
-    const view = views.find(v => v.id === activeViewId)
-    return new Set(view?.collapsedGroups ?? [])
   },
 }))

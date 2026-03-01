@@ -227,8 +227,15 @@ function actionFromEvent(e: React.MouseEvent | MouseEvent): string | null {
 export function ListView() {
   const tickets = useFilteredTickets();
   const groupBy = useFilterStore((s) => s.groupBy);
-  const collapsedGroups = useViewStore((s) => s.getCollapsedGroups());
   const toggleGroupCollapse = useViewStore((s) => s.toggleGroupCollapse);
+  // Stable selector: returns the same array reference when unchanged (Zustand shallow)
+  const collapsedGroupsArr = useViewStore(
+    useCallback((s: { views: { id: string; collapsedGroups?: string[] }[]; activeViewId: string | null }) => {
+      const view = s.views.find(v => v.id === s.activeViewId);
+      return view?.collapsedGroups;
+    }, []),
+  );
+  const collapsedGroups = useMemo(() => new Set(collapsedGroupsArr ?? []), [collapsedGroupsArr]);
   const highlightIndex = useUIStore((s) => s.highlightIndex);
   const setHighlightIndex = useUIStore((s) => s.setHighlightIndex);
   const selectedIds = useUIStore((s) => s.selectedIds);
