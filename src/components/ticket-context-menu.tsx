@@ -236,19 +236,31 @@ function MenuContent({
               {allTags.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-zinc-500">No tags available</div>
               ) : (
-                allTags.map(tag => (
-                  <NS.Item
-                    key={tag}
-                    className={menuItemCls}
-                    onClick={() => actions.toggleTag(ids, tag)}
-                  >
-                    <span className="flex w-3.5 items-center justify-center">
-                      {allHaveTag(tag) && <CheckCircle size={12} weight="bold" className="text-blue-400" />}
-                      {someHaveTag(tag) && <Minus size={12} weight="bold" className="text-zinc-500" />}
-                    </span>
-                    <span className="text-zinc-300">{tag}</span>
-                  </NS.Item>
-                ))
+                [...allTags].sort((a, b) => {
+                  const aActive = allHaveTag(a) || someHaveTag(a)
+                  const bActive = allHaveTag(b) || someHaveTag(b)
+                  if (aActive && !bActive) return -1
+                  if (!aActive && bActive) return 1
+                  return 0
+                }).map((tag, i, arr) => {
+                  const active = allHaveTag(tag) || someHaveTag(tag)
+                  const nextActive = i < arr.length - 1 && (allHaveTag(arr[i + 1]) || someHaveTag(arr[i + 1]))
+                  return (
+                    <div key={tag}>
+                      <NS.Item
+                        className={menuItemCls}
+                        onClick={() => actions.toggleTag(ids, tag)}
+                      >
+                        <span className="flex w-3.5 items-center justify-center">
+                          {allHaveTag(tag) && <CheckCircle size={12} weight="bold" className="text-blue-400" />}
+                          {someHaveTag(tag) && <Minus size={12} weight="bold" className="text-zinc-500" />}
+                        </span>
+                        <span className="text-zinc-300">{tag}</span>
+                      </NS.Item>
+                      {active && !nextActive && <div className="mx-2 my-1 h-px bg-zinc-800" />}
+                    </div>
+                  )
+                })
               )}
             </NS.Popup>
           </NS.Positioner>
