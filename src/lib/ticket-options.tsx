@@ -1,6 +1,6 @@
 import {
   Circle, CircleHalf, CheckCircle, XCircle,
-  ArrowUp, ArrowDown, Minus, ArrowFatDown,
+  ArrowUp, ArrowDown, Minus, Warning,
   Bug, Lightning, ListChecks, Stack, Wrench,
 } from '@phosphor-icons/react'
 
@@ -16,7 +16,7 @@ export const statusOptions = [
 // ── Priority ──────────────────────────────────────────────────
 
 export const priorityOptions = [
-  { value: 0, label: 'Urgent', icon: <ArrowFatDown size={14} weight="fill" className="rotate-180 text-red-400" /> },
+  { value: 0, label: 'Urgent', icon: <Warning size={14} weight="fill" className="text-red-400" /> },
   { value: 1, label: 'High', icon: <ArrowUp size={14} weight="bold" className="text-orange-400" /> },
   { value: 2, label: 'Medium', icon: <Minus size={14} className="text-zinc-400" /> },
   { value: 3, label: 'Low', icon: <ArrowDown size={14} weight="bold" className="text-blue-400" /> },

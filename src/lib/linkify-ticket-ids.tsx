@@ -6,7 +6,7 @@ import { TicketLink } from '@/components/ticket-link'
  * alphanumeric prefix (1-5 chars), dash, alphanumeric suffix (3-5 chars).
  * We cast a wide net, then verify against known IDs.
  */
-const TICKET_ID_RE = /\b([a-z0-9]{1,5}-[a-z0-9]{3,5})\b/gi
+export const TICKET_ID_RE = /\b([a-z0-9]{1,5}-[a-z0-9]{3,5})\b/gi
 
 /**
  * Takes text and a set of known ticket IDs. Returns React elements

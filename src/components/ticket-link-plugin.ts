@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { TICKET_ID_RE } from '@/lib/linkify-ticket-ids'
 
 /**
  * ProseMirror plugin that finds plain-text ticket IDs (e.g. t-8f99)
@@ -8,8 +9,6 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
  * These are read-only visual overlays — they don't modify the document.
  * Click handling is done in the editor's handleDOMEvents.
  */
-
-const TICKET_ID_RE = /\b([a-z0-9]{1,5}-[a-z0-9]{3,5})\b/gi
 
 const pluginKey = new PluginKey('ticketIdLinks')
 
