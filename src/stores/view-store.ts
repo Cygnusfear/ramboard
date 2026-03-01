@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { SavedView } from '@/lib/types'
+import { getViews, saveViewApi, deleteViewApi } from '@/lib/api'
 
 interface ViewState {
   views: SavedView[]
@@ -25,8 +26,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
   fetchViews: async (projectId) => {
     set({ loading: true })
     try {
-      const res = await fetch(`/api/projects/${projectId}/views`)
-      const views: SavedView[] = await res.json()
+      const views = await getViews(projectId)
       const current = get().activeViewId
       set({
         views,
@@ -42,17 +42,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
 
   saveView: async (projectId, view) => {
     const isUpdate = view.id && get().views.some(v => v.id === view.id)
-    const method = isUpdate ? 'PUT' : 'POST'
-    const url = isUpdate
-      ? `/api/projects/${projectId}/views/${view.id}`
-      : `/api/projects/${projectId}/views`
-
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(view),
-    })
-    const saved: SavedView = await res.json()
+    const saved = await saveViewApi(projectId, view)
 
     set(s => ({
       views: isUpdate
@@ -65,7 +55,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
   },
 
   deleteView: async (projectId, viewId) => {
-    await fetch(`/api/projects/${projectId}/views/${viewId}`, { method: 'DELETE' })
+    await deleteViewApi(projectId, viewId)
     set(s => {
       const views = s.views.filter(v => v.id !== viewId)
       return {

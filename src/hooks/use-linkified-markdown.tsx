@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { linkifyTicketIds } from '@/lib/linkify-ticket-ids'
+import { tokenizeTicketIds } from '@/lib/linkify-ticket-ids'
+import { TicketLink } from '@/components/ticket-link'
 import { useKnownTicketIds } from './use-known-ticket-ids'
 import type { Components } from 'react-markdown'
 import type { ReactNode } from 'react'
@@ -17,10 +18,19 @@ export function useLinkifiedMarkdown(): Components {
 
   return useMemo(() => {
     function linkifyChildren(children: ReactNode): ReactNode {
-      if (typeof children === 'string') return linkifyTicketIds(children, knownIds)
+      if (typeof children === 'string') {
+        const tokens = tokenizeTicketIds(children, knownIds)
+        const hasLinks = tokens.some(t => t.isTicketId)
+        if (!hasLinks) return children
+        return tokens.map((token, i) =>
+          token.isTicketId
+            ? <TicketLink key={`${token.text}-${i}`} id={token.text} className="text-[inherit]" />
+            : token.text,
+        )
+      }
       if (Array.isArray(children)) return children.map((c, i) =>
         typeof c === 'string'
-          ? <span key={i}>{linkifyTicketIds(c, knownIds)}</span>
+          ? <span key={i}>{linkifyChildren(c)}</span>
           : c,
       )
       return children

@@ -1,4 +1,4 @@
-import type { ProjectSummary, TicketSummary, Ticket } from './types'
+import type { ProjectSummary, TicketSummary, Ticket, SavedView } from './types'
 
 const BASE = '/api'
 
@@ -41,10 +41,23 @@ export async function updateTicket(projectId: string, ticketId: string, update: 
   })
 }
 
-export async function toggleCheckbox(projectId: string, ticketId: string, index: number): Promise<void> {
-  await fetchJson(`/projects/${projectId}/tickets/${ticketId}/checkbox`, {
-    method: 'POST',
+export async function getViews(projectId: string): Promise<SavedView[]> {
+  return fetchJson(`/projects/${projectId}/views`)
+}
+
+export async function saveViewApi(projectId: string, view: object): Promise<SavedView> {
+  const isUpdate = 'id' in view
+  const method = isUpdate ? 'PUT' : 'POST'
+  const url = isUpdate
+    ? `/projects/${projectId}/views/${(view as any).id}`
+    : `/projects/${projectId}/views`
+  return fetchJson(url, {
+    method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ index }),
+    body: JSON.stringify(view),
   })
+}
+
+export async function deleteViewApi(projectId: string, viewId: string): Promise<void> {
+  await fetchJson(`/projects/${projectId}/views/${viewId}`, { method: 'DELETE' })
 }

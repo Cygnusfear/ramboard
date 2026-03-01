@@ -1,4 +1,5 @@
-import { linkifyTicketIds } from '@/lib/linkify-ticket-ids'
+import { tokenizeTicketIds } from '@/lib/linkify-ticket-ids'
+import { TicketLink } from '@/components/ticket-link'
 import { useKnownTicketIds } from '@/hooks/use-known-ticket-ids'
 
 interface LinkifiedTextProps {
@@ -15,14 +16,23 @@ interface LinkifiedTextProps {
  */
 export function LinkifiedText({ children, className }: LinkifiedTextProps) {
   const knownIds = useKnownTicketIds()
-  const content = linkifyTicketIds(children, knownIds)
+  const tokens = tokenizeTicketIds(children, knownIds)
+
+  const hasLinks = tokens.some(t => t.isTicketId)
+
+  const content = hasLinks
+    ? tokens.map((token, i) =>
+        token.isTicketId
+          ? <TicketLink key={`${token.text}-${i}`} id={token.text} className="text-[inherit]" />
+          : token.text,
+      )
+    : children
 
   if (className) {
     return <span className={className}>{content}</span>
   }
 
-  // If linkify returned the original string (no links found), return as-is
-  if (typeof content === 'string') return <>{content}</>
+  if (!hasLinks) return <>{children}</>
 
   return <>{content}</>
 }
