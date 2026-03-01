@@ -43,16 +43,9 @@ export function useProjectViewSetup(projectId: string | null, viewId: string | n
     }
   }, [viewId, views, activeViewId, setActiveView])
 
-  // When active view changes, load its filters into filter store (list mode)
-  // Skip if URL already has filter params (URL takes priority over saved view)
+  // When active view changes, load its saved filters into filter store
   useEffect(() => {
     if (activeView?.mode === 'list' && activeView.list) {
-      const hasUrlFilters = window.location.search.includes('f=') || window.location.search.includes('q=')
-        || window.location.search.includes('sf=') || window.location.search.includes('sd=')
-      if (hasUrlFilters) {
-        useViewStore.getState().markClean()
-        return
-      }
       const { filters, sortField, sortDir } = activeView.list
       useFilterStore.setState({ filters, sortField, sortDir })
       useViewStore.getState().markClean()

@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useProjectStore } from '@/stores/project-store'
 import { useNavigate } from '@/hooks/use-navigate'
-import { getLastFilterSearch } from '@/hooks/use-filter-url-sync'
+import { useViewStore } from '@/stores/view-store'
 import { StatusDot } from './status-dot'
 import { PriorityIcon } from './priority-icon'
 import { InlineSelect } from './inline-select'
@@ -42,8 +42,8 @@ export function TicketDetail() {
 
   const goBack = useCallback(() => {
     if (!activeProjectId) return
-    const search = getLastFilterSearch()
-    navigate(`/${activeProjectId}${search ? `?${search}` : ''}`)
+    const viewId = useViewStore.getState().activeViewId
+    navigate(viewId ? `/${activeProjectId}/view/${viewId}` : `/${activeProjectId}`)
   }, [activeProjectId, navigate])
 
   const handleStatusToggle = useCallback(() => {

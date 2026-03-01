@@ -3,7 +3,6 @@ import { Route, Switch, Redirect, useRoute } from 'wouter'
 import { useProjectStore } from '@/stores/project-store'
 import { useTicketStore } from '@/stores/ticket-store'
 import { useKeyboard } from '@/hooks/use-keyboard'
-import { useFilterUrlSync } from '@/hooks/use-filter-url-sync'
 import { useProjectViewSetup } from '@/hooks/use-project-view-setup'
 import { ProjectRail } from '@/components/project-rail'
 import { HeaderBar } from '@/components/header-bar'
@@ -36,24 +35,13 @@ function ViewContent({ viewMode, loading }: { viewMode: string; loading: boolean
   return <ListView />
 }
 
+/** Single project view component — handles both /:projectId and /:projectId/view/:viewId */
 function ProjectView() {
-  const [, params] = useRoute('/:projectId')
-  const projectId = params?.projectId ?? null
-  const { loading, viewMode } = useProjectViewSetup(projectId, null)
+  const [, projectParams] = useRoute('/:projectId/view/:viewId')
+  const [, bareParams] = useRoute('/:projectId')
 
-  return (
-    <>
-      <HeaderBar />
-      <ViewContent viewMode={viewMode} loading={loading} />
-    </>
-  )
-}
-
-/** Route: /:projectId/view/:viewId — deep-links to a specific view */
-function ProjectViewWithViewId() {
-  const [, params] = useRoute('/:projectId/view/:viewId')
-  const projectId = params?.projectId ?? null
-  const viewId = params?.viewId ?? null
+  const projectId = projectParams?.projectId ?? bareParams?.projectId ?? null
+  const viewId = projectParams?.viewId ?? null
   const { loading, viewMode } = useProjectViewSetup(projectId, viewId)
 
   return (
@@ -77,7 +65,6 @@ function TicketDetailView() {
 
   useEffect(() => {
     if (projectId && ticketId) {
-      // Only fetch if we don't already have this ticket loaded
       if (!activeTicket || activeTicket.id !== ticketId) {
         fetchTicketDetail(projectId, ticketId)
       }
@@ -91,7 +78,6 @@ export function App() {
   const { fetchProjects } = useProjectStore()
 
   useKeyboard()
-  useFilterUrlSync()
 
   useEffect(() => {
     fetchProjects()
@@ -104,7 +90,7 @@ export function App() {
       <div className="relative flex min-w-0 flex-1 flex-col" style={{ viewTransitionName: 'content' }}>
         <Switch>
           <Route path="/:projectId/ticket/:ticketId" component={TicketDetailView} />
-          <Route path="/:projectId/view/:viewId" component={ProjectViewWithViewId} />
+          <Route path="/:projectId/view/:viewId" component={ProjectView} />
           <Route path="/:projectId" component={ProjectView} />
           <Route path="/" component={RootRedirect} />
         </Switch>

@@ -147,8 +147,8 @@ export function useKeyboard() {
           const currentMode = activeView?.mode ?? 'list'
           const targetMode = currentMode === 'list' ? 'board' : 'list'
           const target = viewStore.views.find(v => v.mode === targetMode)
-          if (target) {
-            viewStore.setActiveView(target.id)
+          if (target && projects.activeProjectId) {
+            navigate(`/${projects.activeProjectId}/view/${target.id}`)
           } else if (activeView) {
             viewStore.updateViewLocal(activeView.id, { mode: targetMode })
           }
