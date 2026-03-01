@@ -13,6 +13,14 @@ export function useProjectViewSetup(projectId: string | null, viewId: string | n
   const activeView = views.find(v => v.id === activeViewId)
   const viewMode = activeView?.mode ?? 'list'
 
+  // Subscribe to filter changes → mark active view dirty so it can be saved
+  useEffect(() => {
+    const unsub = useFilterStore.subscribe(() => {
+      useViewStore.getState().markDirty()
+    })
+    return unsub
+  }, [])
+
   useEffect(() => {
     clearActiveTicket()
     if (projectId && projectId !== activeProjectId) {
