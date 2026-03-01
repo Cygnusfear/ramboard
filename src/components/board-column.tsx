@@ -9,6 +9,7 @@ import { applyFiltersAndSort } from '@/lib/filter-engine'
 import type { SavedList, TicketSummary } from '@/lib/types'
 import { Pencil, DotsSixVertical } from '@phosphor-icons/react'
 import { LinkifiedText } from './linkified-text'
+import { TicketContextMenu } from './ticket-context-menu'
 
 // ── Card ──────────────────────────────────────────────────────
 
@@ -17,20 +18,22 @@ function BoardCard({ ticket }: { ticket: TicketSummary }) {
   const [, navigate] = useNavigate()
 
   return (
-    <div
-      onClick={() => activeProjectId && navigate(`/${activeProjectId}/ticket/${ticket.id}`)}
-      className="flex h-[120px] cursor-pointer flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 transition-colors hover:border-zinc-700 hover:bg-zinc-800/80"
-    >
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-mono text-[10px] text-zinc-500">{ticket.id}</span>
-        <StatusDot status={ticket.status} />
+    <TicketContextMenu targetTickets={[ticket]} triggerClassName="">
+      <div
+        onClick={() => activeProjectId && navigate(`/${activeProjectId}/ticket/${ticket.id}`)}
+        className="flex h-[120px] cursor-pointer flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 transition-colors hover:border-zinc-700 hover:bg-zinc-800/80"
+      >
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="font-mono text-[10px] text-zinc-500">{ticket.id}</span>
+          <StatusDot status={ticket.status} />
+        </div>
+        <div className="mb-auto line-clamp-2 text-sm leading-snug text-zinc-200"><LinkifiedText>{ticket.title}</LinkifiedText></div>
+        <div className="flex items-center justify-between">
+          <PriorityIcon priority={ticket.priority} />
+          {ticket.tags?.length > 0 && <TagList tags={ticket.tags} max={2} />}
+        </div>
       </div>
-      <div className="mb-auto line-clamp-2 text-sm leading-snug text-zinc-200"><LinkifiedText>{ticket.title}</LinkifiedText></div>
-      <div className="flex items-center justify-between">
-        <PriorityIcon priority={ticket.priority} />
-        {ticket.tags?.length > 0 && <TagList tags={ticket.tags} max={2} />}
-      </div>
-    </div>
+    </TicketContextMenu>
   )
 }
 

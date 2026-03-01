@@ -76,18 +76,11 @@ const ListRow = memo(function ListRow({
   index,
   isHighlighted,
   isSelected,
-  menuActions,
 }: {
   ticket: TicketSummary;
   index: number;
   isHighlighted: boolean;
   isSelected: boolean;
-  menuActions: {
-    onSetStatus: (ids: string[], s: string) => void;
-    onSetPriority: (ids: string[], p: number) => void;
-    onCopyId: (ids: string[]) => void;
-    onOpen: (id: string) => void;
-  };
 }) {
   return (
     <div
@@ -98,7 +91,7 @@ const ListRow = memo(function ListRow({
     >
       {/* ··· dot menu */}
       <div data-action="menu" className="flex items-center justify-center">
-        <DotMenu ticket={ticket} {...menuActions} />
+        <DotMenu ticket={ticket} />
       </div>
 
       {/* Checkbox */}
@@ -124,9 +117,7 @@ const ListRow = memo(function ListRow({
           <LinkifiedText>{ticket.title}</LinkifiedText>
         </span>
         {ticket.tags?.length > 0 && (
-          <span className="ml-1 shrink-0">
-            <TagList tags={ticket.tags} max={2} />
-          </span>
+          <TagList tags={ticket.tags} className="ml-1" />
         )}
       </div>
 
@@ -170,7 +161,7 @@ export function ListView() {
   const [, navigate] = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Keep latest deps in refs so the machine never goes stale
+  // Keep latest deps in refs so the interaction engine never goes stale
   const ticketsRef = useRef(tickets);
   ticketsRef.current = tickets;
   const navigateRef = useRef(navigate);
@@ -331,48 +322,6 @@ export function ListView() {
     virtualizer.scrollToIndex(highlightIndex, { align: "auto" });
   }, [highlightIndex, virtualizer]);
 
-  // Context menu action handlers — read from refs, no stale closures
-  function handleSetStatus(ticketIds: string[], status: string) {
-    const pid = activeProjectRef.current;
-    if (!pid) return;
-    for (const id of ticketIds) updateStatusRef.current(pid, id, status);
-  }
-
-  function handleSetPriority(_ticketIds: string[], _priority: number) {
-    // TODO: implement priority update API
-  }
-
-  function handleCopyId(ticketIds: string[]) {
-    navigator.clipboard.writeText(ticketIds.join(", "));
-  }
-
-  function handleOpenTicket(ticketId: string) {
-    const pid = activeProjectRef.current;
-    if (pid) navigateRef.current(`/${pid}/ticket/${ticketId}`);
-  }
-
-  // Stable ref for menu actions — avoids re-rendering every ListRow on each render
-  const menuActionsRef = useRef({
-    onSetStatus: handleSetStatus,
-    onSetPriority: handleSetPriority,
-    onCopyId: handleCopyId,
-    onOpen: handleOpenTicket,
-  });
-  menuActionsRef.current = {
-    onSetStatus: handleSetStatus,
-    onSetPriority: handleSetPriority,
-    onCopyId: handleCopyId,
-    onOpen: handleOpenTicket,
-  };
-
-  // Stable wrapper that delegates to ref — same identity across renders
-  const [menuActions] = useState(() => ({
-    onSetStatus: (ids: string[], s: string) => menuActionsRef.current.onSetStatus(ids, s),
-    onSetPriority: (ids: string[], p: number) => menuActionsRef.current.onSetPriority(ids, p),
-    onCopyId: (ids: string[]) => menuActionsRef.current.onCopyId(ids),
-    onOpen: (id: string) => menuActionsRef.current.onOpen(id),
-  }));
-
   const virtualItems = virtualizer.getVirtualItems();
   const { selection } = viewState;
 
@@ -402,13 +351,7 @@ export function ListView() {
       )}
 
       {/* Virtual scroll container — wrapped in context menu */}
-      <TicketContextMenu
-        targetTickets={viewState.contextTargets}
-        onSetStatus={handleSetStatus}
-        onSetPriority={handleSetPriority}
-        onCopyId={handleCopyId}
-        onOpen={handleOpenTicket}
-      >
+      <TicketContextMenu targetTickets={viewState.contextTargets}>
         <div
           ref={scrollRef}
           className="flex-1 overflow-auto"
@@ -441,7 +384,7 @@ export function ListView() {
                       index={vrow.index}
                       isHighlighted={vrow.index === highlightIndex}
                       isSelected={selection.has(ticket.id)}
-                      menuActions={menuActions}
+
                     />
                   </div>
                 );
